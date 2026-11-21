@@ -37,17 +37,12 @@ const modes = {
 };
 
 app.get("/health", (req, res) => {
-  const openaiKeyPresent = typeof process.env.OPENAI_API_KEY === "string"
-    && process.env.OPENAI_API_KEY.trim().length > 0;
-  const openaiRelatedVariableNames = Object.keys(process.env)
-    .filter((name) => name.toUpperCase().includes("OPENAI"));
-
+  const geminiKeyPresent = typeof process.env.GEMINI_API_KEY === "string"
+    && process.env.GEMINI_API_KEY.trim().length > 0;
   res.json({
     status: "ok",
-    openaiConfigured: openaiKeyPresent,
-    openaiKeyPresent,
-    openaiRelatedVariableNames,
-    anthropicConfigured: Boolean(process.env.ANTHROPIC_API_KEY)
+    geminiConfigured: geminiKeyPresent,
+    geminiKeyPresent
   });
 });
 
@@ -83,75 +78,51 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
   if (!Object.prototype.hasOwnProperty.call(modes, mode)) {
     return res.status(400).json({ error: "Modo inválido." });
   }
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.GEMINI_API_KEY) {
     return res.json({ answer: demoAnswer(message, mode), demo: true });
   }
 
   try {
-    const firstResponse = await fetch("https://api.openai.com/v1/responses", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: "Bearer " + process.env.OPENAI_API_KEY
+        "x-goog-api-key": process.env.GEMINI_API_KEY
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-        instructions: modes[mode],
-        input: message.trim()
+        model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
+        input: message.trim(),
+        system_instruction: modes[mode],
+        store: false
       }),
       signal: AbortSignal.timeout(60000)
     });
 
-    const firstData = await firstResponse.json();
-    if (!firstResponse.ok) {
-      console.error("OpenAI API error:", firstData.error?.message || firstResponse.status);
-      const apiErrorCode = firstData.error?.code || firstData.error?.type;
-      if (apiErrorCode === "insufficient_quota" || apiErrorCode === "billing_hard_limit_reached") {
-        return res.json({ answer: demoAnswer(message, mode), demo: true });
-      }
-      return res.status(502).json({ error: "A IA não conseguiu responder. Confira a configuração da API." });
+    const data = await response.json();
+    if (!response.ok) {
+      console.error("Gemini API error:", data.error?.message || response.status);
+      return res.status(response.status === 429 ? 429 : 502).json({
+        error: response.status === 429
+          ? "A IA atingiu o limite gratuito por enquanto. Tente novamente mais tarde."
+          : "A IA não conseguiu responder. Confira a chave e a configuração do Gemini."
+      });
     }
 
-    const draft = firstData.output_text;
-    if (!draft) {
+    const answer = (data.steps || [])
+      .filter((step) => step.type === "model_output")
+      .flatMap((step) => step.content || [])
+      .filter((part) => part.type === "text" && typeof part.text === "string")
+      .map((part) => part.text)
+      .join("\\n")
+      .trim();
+
+    if (!answer) {
       return res.status(502).json({ error: "A IA não retornou uma resposta válida." });
     }
 
-    // Claude é uma revisão opcional: o Veletti continua funcionando sem essa chave.
-    if (process.env.ANTHROPIC_API_KEY) {
-      try {
-        const reviewResponse = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": process.env.ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01"
-          },
-          body: JSON.stringify({
-            model: process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-latest",
-            max_tokens: 1200,
-            system: "Revise a resposta abaixo em português do Brasil. Corrija erros e deixe-a clara e útil. Não invente fatos. Retorne apenas a resposta revisada.",
-            messages: [{
-              role: "user",
-              content: "Pergunta: " + message.trim() + "\n\nResposta para revisar:\n" + draft
-            }]
-          }),
-          signal: AbortSignal.timeout(60000)
-        });
-        const reviewData = await reviewResponse.json();
-        const revised = reviewData.content?.find((item) => item.type === "text")?.text;
-        if (reviewResponse.ok && revised) {
-          return res.json({ answer: revised, reviewedByClaude: true });
-        }
-        console.error("Claude review unavailable:", reviewData.error?.message || reviewResponse.status);
-      } catch (reviewError) {
-        console.error("Claude review error:", reviewError.message);
-      }
-    }
-
-    return res.json({ answer: draft, reviewedByClaude: false });
+    return res.json({ answer, provider: "gemini" });
   } catch (error) {
-    console.error("Assistant error:", error.message);
+    console.error("Gemini assistant error:", error.message);
     return res.status(500).json({ error: "Ocorreu um erro ao conversar com o Veletti." });
   }
 });
