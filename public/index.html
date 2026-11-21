@@ -125,9 +125,9 @@
       statusText.textContent=data.openaiConfigured?"Servidor online · IA configurada":"Servidor online · IA pendente";
       statusDot.style.background="#4ed6a0";
       statusDot.style.boxShadow="0 0 12px #4ed6a088";
-      notice.textContent=data.openaiConfigured
-        ?"A chave da IA está configurada no servidor. Não compartilhe chaves ou dados pessoais no chat."
-        :"O servidor está online. O chat com IA ainda precisa de configuração no servidor; tarefas e finanças continuam disponíveis.";
+      notice.textContent=data.geminiConfigured
+        ?"A conexão com Gemini está configurada no servidor. Não compartilhe chaves ou dados pessoais no chat."
+        :"O servidor está online. O chat com IA precisa de uma chave Gemini no servidor; tarefas e finanças continuam disponíveis.";
     } catch(error) {
       statusText.textContent="Não foi possível verificar";
       statusDot.style.background="#ff7d8b";
