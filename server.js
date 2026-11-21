@@ -7,6 +7,8 @@ const rateLimit = require("express-rate-limit");
 const path = require("path");
 
 const app = express();
+// O Render fica atrás de um proxy; isso permite ao rate-limit identificar o IP do cliente.
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 
 // A interface inicial usa CSS/JavaScript no próprio HTML; CSP será configurada ao separar os assets.
