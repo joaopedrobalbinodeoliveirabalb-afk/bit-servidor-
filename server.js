@@ -194,8 +194,7 @@ async function getFootballContext(message, history) {
 
     const labels = { live: "Partidas ao vivo", results: "Últimos resultados", next: "Próximos jogos" };
     return {
-      context: "DADOS ATUALIZADOS CONSULTADOS NA API-FOOTBALL. Use somente estes dados para responder; não invente nem altere datas, horários, adversários ou placares. Time identificado: " +
-        selected.team.name + ". " + labels[intent] + ":\n" + lines.join("\n")
+      directAnswer: selected.team.name + " — " + labels[intent] + ":\n" + lines.join("\n")
     };
   } catch (error) {
     console.error("Football API error:", error.message);
