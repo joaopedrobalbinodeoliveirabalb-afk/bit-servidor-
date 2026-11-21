@@ -152,7 +152,7 @@
       const data=await response.json();
       if(!response.ok) throw new Error(data.error||"Não foi possível responder.");
       addBubble(data.answer,"bot");
-      document.getElementById("chatNotice").textContent=data.reviewedByClaude?"Resposta revisada por duas IAs.":"Resposta gerada pelo assistente.";
+      document.getElementById("chatNotice").textContent=data.demo?"Modo demonstração gratuito: resposta pré-programada, sem consumo de créditos.":(data.reviewedByClaude?"Resposta revisada por duas IAs.":"Resposta gerada pelo assistente.");
     } catch(error) {
       addBubble(error.message+" Você ainda pode usar as áreas de tarefas e finanças enquanto a IA é configurada.","bot");
     } finally {button.disabled=false;button.textContent="Enviar ↗";}
