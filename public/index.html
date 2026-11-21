@@ -137,7 +137,7 @@
   }
   checkServiceStatus();
 
-  const chatBox = document.getElementById("chatBox");
+  const chatHistory = [];\n  const chatBox = document.getElementById("chatBox");
   function addBubble(text,who) {
     const el=document.createElement("div");el.className="bubble "+who;
     const small=document.createElement("small");small.textContent=who==="user"?"VOCÊ":"VELETTI IA";
@@ -145,13 +145,13 @@
   }
   async function sendChat(message,mode="chat") {
     if(!message.trim()) return;
-    addBubble(message,"user");
+    addBubble(message,"user");\n    chatHistory.push({role:"user",content:message});
     const button=document.getElementById("sendButton");button.disabled=true;button.textContent="Enviando…";
     try {
-      const response=await fetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,mode})});
+      const response=await fetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,mode,history:chatHistory.slice(-12)})});
       const data=await response.json();
       if(!response.ok) throw new Error(data.error||"Não foi possível responder.");
-      addBubble(data.answer,"bot");
+      addBubble(data.answer,"bot");\n      chatHistory.push({role:"assistant",content:data.answer});
       document.getElementById("chatNotice").textContent=data.demo?"Modo demonstração gratuito: resposta pré-programada, sem consumo de créditos.":(data.reviewedByClaude?"Resposta revisada por duas IAs.":"Resposta gerada pelo assistente.");
     } catch(error) {
       addBubble(error.message+" Você ainda pode usar as áreas de tarefas e finanças enquanto a IA é configurada.","bot");
