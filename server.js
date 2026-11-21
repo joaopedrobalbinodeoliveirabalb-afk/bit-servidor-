@@ -57,20 +57,32 @@ function isAffirmative(value) {
 function extractTeamFromText(value) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   const patterns = [
-    /(?:pr[oó]xim[oa]s?\s+)?jogos?\s+(?:do|da|de)\s+(.+?)(?:[?.!,]|$)/i,
-    /partidas?\s+(?:do|da|de)\s+(.+?)(?:[?.!,]|$)/i,
+    /(?:pr[oó]xim[oa]s?\s+)?jogos?\s+(?:(?:ao vivo|de hoje|de amanh[aã])\s+)?(?:do|da|de)\s+(.+?)(?:[?.!,]|$)/i,
+    /partidas?\s+(?:ao vivo\s+)?(?:do|da|de)\s+(.+?)(?:[?.!,]|$)/i,
+    /jogo\s+ao vivo\s+(?:do|da|de)\s+(.+?)(?:[?.!,]|$)/i,
     /(?:resultado|placar)\s+(?:do|da|de)\s+(.+?)(?:[?.!,]|$)/i,
+    /(?:[uú]ltim[oa]s?\s+(?:jogos?|partidas?))\s+(?:do|da|de)\s+(.+?)(?:[?.!,]|$)/i,
     /quando\s+(?:o|a)?\s*([a-zÀ-ÿ][a-zÀ-ÿ .'-]{1,45}?)\s+(?:joga|vai jogar|jogou)/i,
     /quando\s+joga\s+(?:o|a)?\s*(.+?)(?:[?.!,]|$)/i,
-    /contra\s+quem\s+joga\s+(?:o|a)?\s*(.+?)(?:[?.!,]|$)/i
+    /contra\s+quem\s+joga\s+(?:o|a)?\s*(.+?)(?:[?.!,]|$)/i,
+    /(?:ao vivo|hoje|amanh[aã])\s+(?:do|da|de)\s+(.+?)(?:[?.!,]|$)/
   ];
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match && match[1]) {
-      return match[1].replace(/\b(hoje|amanh[aã]|agora|na pr[oó]xima rodada|na pr[oó]xima partida)\b/ig, "").trim();
+      return match[1]
+        .replace(/\b(hoje|amanh[aã]|agora|ao vivo|na pr[oó]xima rodada|na pr[oó]xima partida|por favor)\b/ig, "")
+        .trim();
     }
   }
   return null;
+}
+
+function getFootballIntent(message, history) {
+  const text = [message, ...(Array.isArray(history) ? history.slice(-8).filter((item) => item.role === "user").map((item) => item.content) : [])].join(" ").toLowerCase();
+  if (/(ao vivo|agora|em andamento|placar ao vivo)/i.test(text)) return "live";
+  if (/(resultado|placar|[uú]ltim[oa]s?|jogou|partidas? anteriores|jogos? anteriores)/i.test(text)) return "results";
+  return "next";
 }
 
 async function getFootballContext(message, history) {
@@ -93,8 +105,33 @@ async function getFootballContext(message, history) {
   const combined = confirmedGalo
     ? "jogo do Atlético Mineiro"
     : [message, ...conversation.filter((item) => item.role === "user").map((item) => item.content)].join(" ");
-  const teamQuery = confirmedGalo ? "Atlético Mineiro" : extractTeamFromText(combined);
+  let teamQuery = confirmedGalo ? "Atlético Mineiro" : extractTeamFromText(message) || extractTeamFromText(combined);
   if (!teamQuery) return null;
+
+  const aliases = {
+    "mengao": "Flamengo", "fla": "Flamengo",
+    "timao": "Corinthians", "coringao": "Corinthians",
+    "verdao": "Palmeiras", "porco": "Palmeiras",
+    "peixe": "Santos",
+    "raposa": "Cruzeiro",
+    "galo": "Atlético Mineiro",
+    "furacao": "Athletico Paranaense",
+    "cap": "Athletico Paranaense",
+    "coelho": "América Mineiro",
+    "colorado": "Internacional",
+    "inter": "Internacional",
+    "imortal": "Grêmio",
+    "tricolor gaucho": "Grêmio",
+    "flu": "Fluminense",
+    "fogao": "Botafogo",
+    "bota": "Botafogo",
+    "vascao": "Vasco da Gama",
+    "leao do pici": "Fortaleza",
+    "bahêa": "Bahia"
+  };
+  const normalizedQuery = normalizeTeamName(teamQuery);
+  teamQuery = aliases[normalizedQuery] || teamQuery;
+  const intent = getFootballIntent(message, history);
 
   try {
     const teamUrl = new URL("https://v3.football.api-sports.io/teams");
@@ -118,8 +155,11 @@ async function getFootballContext(message, history) {
 
     const fixturesUrl = new URL("https://v3.football.api-sports.io/fixtures");
     fixturesUrl.searchParams.set("team", selected.team.id);
-    fixturesUrl.searchParams.set("next", "5");
     fixturesUrl.searchParams.set("timezone", "America/Sao_Paulo");
+    if (intent === "live") fixturesUrl.searchParams.set("live", "all");
+    else if (intent === "results") fixturesUrl.searchParams.set("last", "5");
+    else fixturesUrl.searchParams.set("next", "5");
+
     const fixturesResponse = await fetch(fixturesUrl, {
       headers: { "x-apisports-key": key },
       signal: AbortSignal.timeout(12000)
@@ -127,17 +167,35 @@ async function getFootballContext(message, history) {
     if (!fixturesResponse.ok) throw new Error("Falha ao consultar partidas");
     const fixturesData = await fixturesResponse.json();
     const fixtures = Array.isArray(fixturesData.response) ? fixturesData.response : [];
-    if (!fixtures.length) return { directAnswer: "Não encontrei próximos jogos cadastrados para " + selected.team.name + " neste momento." };
+
+    if (!fixtures.length) {
+      const messages = {
+        live: "Não encontrei nenhuma partida ao vivo de " + selected.team.name + " neste momento.",
+        results: "Não encontrei resultados anteriores cadastrados para " + selected.team.name + " neste momento.",
+        next: "Não encontrei próximos jogos cadastrados para " + selected.team.name + " neste momento."
+      };
+      return { directAnswer: messages[intent] };
+    }
 
     const lines = fixtures.map((item) => {
-      const date = item.fixture?.date ? new Date(item.fixture.date).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) : "data a confirmar";
-      return "- " + item.teams?.home?.name + " x " + item.teams?.away?.name +
-        " | " + date + " | " + (item.league?.name || "competição não informada") +
+      const date = item.fixture?.date
+        ? new Date(item.fixture.date).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })
+        : "data a confirmar";
+      const home = item.teams?.home?.name || "Mandante";
+      const away = item.teams?.away?.name || "Visitante";
+      const score = item.goals && (item.goals.home !== null || item.goals.away !== null)
+        ? " | placar: " + (item.goals.home ?? 0) + " x " + (item.goals.away ?? 0)
+        : "";
+      return "- " + home + " x " + away +
+        " | " + date + score +
+        " | " + (item.league?.name || "competição não informada") +
         " | status: " + (item.fixture?.status?.long || "não informado");
     });
+
+    const labels = { live: "Partidas ao vivo", results: "Últimos resultados", next: "Próximos jogos" };
     return {
-      context: "DADOS ATUALIZADOS CONSULTADOS NA API-FOOTBALL. Use somente estes dados para responder sobre jogos; não invente nem altere datas, horários ou adversários. Time identificado: " +
-        selected.team.name + ". Próximos jogos:\n" + lines.join("\n")
+      context: "DADOS ATUALIZADOS CONSULTADOS NA API-FOOTBALL. Use somente estes dados para responder; não invente nem altere datas, horários, adversários ou placares. Time identificado: " +
+        selected.team.name + ". " + labels[intent] + ":\n" + lines.join("\n")
     };
   } catch (error) {
     console.error("Football API error:", error.message);
@@ -177,8 +235,8 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
   if (!Object.prototype.hasOwnProperty.call(modes, mode)) {
     return res.status(400).json({ error: "Modo inválido." });
   }
-  const hasFootballFollowUp = Array.isArray(history) && history.some((item) => item && item.role === "user" && /jogos?|partidas?|placar|resultado|quando joga|contra quem/i.test(String(item.content || ""))) && String(message).trim().length < 45;
-  if (mode === "chat" && (/jogos?|partidas?|placar|resultado|quando joga|contra quem/i.test(message) || hasFootballFollowUp)) {
+  const hasFootballFollowUp = Array.isArray(history) && history.some((item) => item && item.role === "user" && /jogos?|partidas?|placar|resultado|quando joga|contra quem|ao vivo|[uú]ltim[oa]s?/i.test(String(item.content || ""))) && String(message).trim().length < 60;
+  if (mode === "chat" && (/jogos?|partidas?|placar|resultado|quando joga|contra quem|ao vivo|[uú]ltim[oa]s?|jogou/i.test(message) || hasFootballFollowUp)) {
     const football = await getFootballContext(message, history);
     if (football?.directAnswer) return res.json({ answer: football.directAnswer, provider: "football" });
     if (football?.context) req.footballContext = football.context;
