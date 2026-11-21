@@ -5,6 +5,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
+const crypto = require("crypto");
 
 const app = express();
 // O Render fica atrás de um proxy; isso permite ao rate-limit identificar o IP do cliente.
@@ -33,8 +34,52 @@ const modes = {
   chat: "Converse de forma clara, útil e respeitosa. Responda em português do Brasil e seja direto: comece pela resposta principal, sem introduções ou rodeios. REGRA DE CLAREZA SOBRE GALO: sempre que o usuário disser \"Galo\" e ainda não estiver claro pelo contexto que fala do time de futebol, pergunte exatamente: \"Você está falando do Atlético Mineiro?\". Não presuma que é o Atlético Mineiro antes da confirmação. Depois que o usuário confirmar, use Atlético Mineiro como significado de Galo no restante da conversa. Para assuntos que mudam com o tempo — especialmente jogos, adversários, datas, horários, escalações e placares — não trate informações antigas como atuais. Só informe dados atuais se tiver uma fonte atualizada; se não tiver, diga diretamente que não conseguiu confirmar. Nunca invente adversários, datas ou resultados.",
   study: "Você é um tutor paciente. Explique em português simples, passo a passo, e ajude o estudante a aprender.",
   organize: "Você é um assistente de organização. Ajude a dividir objetivos em tarefas realistas e etapas práticas.",
-  finance: "Você é um educador financeiro. Explique orçamento, economia e planejamento de forma educativa. Nunca peça senhas, dados bancários ou informações confidenciais."
+  finance: "Você é um educador financeiro. Explique orçamento, economia e planejamento de forma educativa. Nunca peça senhas, dados bancários ou informações confidenciais.",
+  owner: "Você é o Veletti em MODO DONO, o assistente administrativo avançado do criador. Responda em português do Brasil, com respostas diretas, completas e bem organizadas. Ajude a planejar, analisar, programar e melhorar projetos. Quando faltar informação, diga claramente o que não sabe; nunca invente fatos. Use pesquisa na web somente quando o usuário pedir pesquisa ou informação atual. Não revele segredos, chaves ou configurações internas."
 };
+
+
+function safeEqual(a, b) {
+  const left = Buffer.from(String(a || ""));
+  const right = Buffer.from(String(b || ""));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+function makeOwnerToken() {
+  const expires = Date.now() + 12 * 60 * 60 * 1000;
+  const payload = String(expires);
+  const signature = crypto.createHmac("sha256", process.env.VELETTI_SESSION_SECRET || process.env.VELETTI_OWNER_PASSWORD).update(payload).digest("hex");
+  return payload + "." + signature;
+}
+function isOwner(req) {
+  const password = process.env.VELETTI_OWNER_PASSWORD;
+  const secret = process.env.VELETTI_SESSION_SECRET || password;
+  if (!password || !secret) return false;
+  const cookie = String(req.headers.cookie || "").split(";").map((v) => v.trim()).find((v) => v.startsWith("veletti_owner="));
+  if (!cookie) return false;
+  const token = decodeURIComponent(cookie.slice("veletti_owner=".length));
+  const [expires, signature] = token.split(".");
+  if (!expires || !signature || !/^\\d+$/.test(expires) || Number(expires) < Date.now()) return false;
+  const expected = crypto.createHmac("sha256", secret).update(expires).digest("hex");
+  return safeEqual(signature, expected);
+}
+app.post("/api/owner/login", (req, res) => {
+  const configured = process.env.VELETTI_OWNER_PASSWORD;
+  if (!configured) return res.status(503).json({ error: "O acesso do dono ainda não foi configurado no Render." });
+  const submitted = req.body && req.body.password;
+  if (typeof submitted !== "string" || !safeEqual(submitted, configured)) {
+    return res.status(401).json({ error: "Senha incorreta." });
+  }
+  const token = makeOwnerToken();
+  res.setHeader("Set-Cookie", "veletti_owner=" + encodeURIComponent(token) + "; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200");
+  return res.json({ ok: true });
+});
+app.post("/api/owner/logout", (req, res) => {
+  res.setHeader("Set-Cookie", "veletti_owner=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0");
+  res.json({ ok: true });
+});
+app.get("/api/owner/status", (req, res) => {
+  res.json({ configured: Boolean(process.env.VELETTI_OWNER_PASSWORD), authenticated: isOwner(req) });
+});
 
 app.get("/health", (req, res) => {
   const geminiKeyPresent = typeof process.env.GEMINI_API_KEY === "string"
@@ -234,6 +279,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
   if (!Object.prototype.hasOwnProperty.call(modes, mode)) {
     return res.status(400).json({ error: "Modo inválido." });
   }
+  if (mode === "owner" && !isOwner(req)) return res.status(403).json({ error: "Entre no Modo Dono para usar esta área." });
   const hasFootballFollowUp = Array.isArray(history) && history.some((item) => item && item.role === "user" && /jogos?|partidas?|placar|resultado|quando joga|contra quem|ao vivo|[uú]ltim[oa]s?/i.test(String(item.content || ""))) && String(message).trim().length < 60;
   if (mode === "chat" && (/jogos?|partidas?|placar|resultado|quando joga|contra quem|ao vivo|[uú]ltim[oa]s?|jogou/i.test(message) || hasFootballFollowUp)) {
     const football = await getFootballContext(message, history);
@@ -258,7 +304,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
         model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
         input: req.footballContext ? message.trim() + "\n\n" + req.footballContext : message.trim(),
         system_instruction: modes[mode],
-        tools: (mode === "chat" || mode === "study") && wantsWebSearch ? [{ type: "google_search" }] : undefined,
+        tools: (mode === "chat" || mode === "study" || mode === "owner") && wantsWebSearch ? [{ type: "google_search" }] : undefined,
         store: false
       }),
       signal: AbortSignal.timeout(60000)
