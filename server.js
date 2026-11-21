@@ -179,7 +179,10 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
   }
   const hasFootballFollowUp = Array.isArray(history) && history.some((item) => item && item.role === "user" && /jogos?|partidas?|placar|resultado|quando joga|contra quem/i.test(String(item.content || ""))) && String(message).trim().length < 45;
   if (mode === "chat" && (/jogos?|partidas?|placar|resultado|quando joga|contra quem/i.test(message) || hasFootballFollowUp)) {
-    const football = await getFootballContext(message, history);\n    if (football?.directAnswer) return res.json({ answer: football.directAnswer, provider: "football" });\n    if (football?.context) req.footballContext = football.context;\n  }
+    const football = await getFootballContext(message, history);
+    if (football?.directAnswer) return res.json({ answer: football.directAnswer, provider: "football" });
+    if (football?.context) req.footballContext = football.context;
+  }
   if (!process.env.GEMINI_API_KEY) {
     return res.json({ answer: demoAnswer(message, mode), demo: true });
   }
