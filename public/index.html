@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080d1b">
+  <meta name="description" content="Veletti — seu espaço inteligente para conversar, estudar, organizar tarefas e aprender a cuidar do dinheiro.">
+  <title>Veletti — seu espaço inteligente</title>
+  <style>
+    :root{--bg:#080d1b;--panel:#101a2d;--panel2:#14223a;--line:#233451;--text:#edf4ff;--muted:#91a4c2;--blue:#4b91ff;--cyan:#45d5e8;--green:#4ed6a0;--red:#ff7d8b;--radius:18px}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 75% -10%,#18345b 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+    button,input,select{font:inherit}button{cursor:pointer}.app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}.sidebar{padding:25px 16px;border-right:1px solid var(--line);background:#091222dd;display:flex;flex-direction:column;gap:25px}.brand{display:flex;align-items:center;gap:11px;padding:0 10px}.brand-mark{width:39px;height:39px;border-radius:13px;background:linear-gradient(135deg,var(--blue),var(--cyan));display:grid;place-items:center;color:#06101f;font-weight:900;font-size:20px;box-shadow:0 8px 25px #328bff44}.brand strong{font-size:21px;letter-spacing:.4px}.brand small{display:block;color:var(--muted);font-size:11px;letter-spacing:1.8px;text-transform:uppercase}.nav-label{padding:0 12px;color:#7186a8;font-size:10px;font-weight:800;letter-spacing:1.7px;text-transform:uppercase}.nav{display:grid;gap:7px}.nav button{border:1px solid transparent;background:transparent;color:#a9bad4;text-align:left;padding:12px 13px;border-radius:12px;display:flex;align-items:center;gap:12px}.nav button:hover,.nav button.active{background:#172b49;border-color:#29476e;color:white}.nav .ico{width:22px;text-align:center;font-size:17px}.side-note{margin-top:auto;border:1px solid var(--line);border-radius:15px;padding:14px;background:#101c30}.side-note b{font-size:13px}.side-note p{color:var(--muted);font-size:12px;margin:6px 0 0}.main{padding:30px clamp(18px,4vw,55px);max-width:1450px;width:100%;margin:0 auto}.topbar{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:28px}.eyebrow{color:var(--cyan);font-size:11px;text-transform:uppercase;letter-spacing:1.8px;font-weight:800}.topbar h1{font-size:clamp(25px,3vw,34px);margin:4px 0 0;letter-spacing:-1px}.status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;border:1px solid var(--line);padding:9px 12px;border-radius:30px;background:#101a2d}.dot{width:8px;height:8px;background:var(--green);border-radius:50%;box-shadow:0 0 12px #4ed6a088}.welcome{border:1px solid #29476e;border-radius:22px;padding:clamp(20px,4vw,34px);background:linear-gradient(110deg,#142a49,#101b31 65%,#142e49);display:flex;justify-content:space-between;align-items:center;gap:20px;overflow:hidden;position:relative}.welcome:after{content:"V";position:absolute;right:8%;top:-65px;font-size:270px;font-weight:900;color:#ffffff08;pointer-events:none}.welcome h2{font-size:clamp(22px,3vw,30px);margin:8px 0}.welcome p{color:#b5c6df;max-width:550px;margin:0}.welcome-mark{font-size:64px;filter:drop-shadow(0 0 25px #4b91ff88);padding:0 25px}.section-title{display:flex;justify-content:space-between;align-items:center;margin:28px 0 14px}.section-title h2{font-size:17px;margin:0}.section-title span{color:var(--muted);font-size:12px}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}.feature{background:linear-gradient(145deg,#121f34,#0e1728);border:1px solid var(--line);border-radius:17px;padding:18px;min-height:140px;cursor:pointer;transition:.18s}.feature:hover{transform:translateY(-3px);border-color:#4776b2}.feature-icon{width:38px;height:38px;border-radius:12px;background:#1b3559;display:grid;place-items:center;font-size:19px;margin-bottom:12px}.feature b{display:block;font-size:14px}.feature p{font-size:12px;color:var(--muted);margin:5px 0 0}.panel{background:#0f192b;border:1px solid var(--line);border-radius:var(--radius);padding:22px}.view{display:none}.view.active{display:block}.view-head{margin-bottom:18px}.view-head h2{font-size:23px;margin:0 0 5px}.view-head p{color:var(--muted);margin:0;font-size:13px}.chat-layout{display:grid;grid-template-columns:1fr;gap:14px}.chat-box{height:min(53vh,490px);min-height:280px;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:4px 3px 15px}.bubble{max-width:min(82%,700px);padding:12px 15px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}.bubble.bot{background:#172943;border:1px solid #294363;align-self:flex-start;border-bottom-left-radius:5px}.bubble.user{background:#2455a0;align-self:flex-end;border-bottom-right-radius:5px}.bubble small{display:block;color:#a9c1e4;font-size:10px;margin-bottom:4px}.chat-form{display:flex;gap:9px;border-top:1px solid var(--line);padding-top:15px}.chat-form input,.field input,.field select{width:100%;background:#0a1322;color:var(--text);border:1px solid #2a3c58;border-radius:12px;padding:12px 13px;outline:none}.chat-form input:focus,.field input:focus,.field select:focus{border-color:var(--blue)}.primary{background:linear-gradient(110deg,var(--blue),#3473dc);border:0;color:white;font-weight:750;padding:11px 17px;border-radius:12px}.primary:disabled{opacity:.55;cursor:wait}.secondary{background:#172943;border:1px solid #2b4568;color:#dceaff;padding:10px 14px;border-radius:11px}.suggestions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.suggestions button{background:#101f35;border:1px solid #29415f;color:#bdd0ec;padding:7px 10px;border-radius:30px;font-size:12px}.grid-two{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}.field{display:grid;gap:6px;margin:10px 0}.field label{font-size:12px;color:#aabbd4}.form-row{display:flex;gap:9px;align-items:end}.form-row .field{flex:1}.task-list,.entry-list{display:grid;gap:8px;margin-top:15px}.task{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);background:#111f34;border-radius:12px}.task input{accent-color:var(--blue);width:17px;height:17px}.task.done span{text-decoration:line-through;color:#7186a8}.task button{margin-left:auto;border:0;background:transparent;color:#8398b7;font-size:17px}.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.stat{padding:15px;border:1px solid var(--line);background:#111f34;border-radius:14px}.stat small{color:var(--muted)}.stat strong{display:block;font-size:22px;margin-top:5px}.entry{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;background:#111f34;border:1px solid var(--line);border-radius:11px;font-size:13px}.entry strong{color:#ffb2ba}.entry strong.income{color:var(--green)}.notice{color:var(--muted);font-size:11px;margin-top:12px}.empty{color:#8296b4;text-align:center;padding:24px 10px;font-size:13px}.mobile-menu{display:none}.footer{color:#637998;text-align:center;font-size:11px;padding:30px 0 8px}
+    @media(max-width:950px){.cards{grid-template-columns:repeat(2,1fr)}.app{grid-template-columns:210px 1fr}.grid-two{grid-template-columns:1fr}}
+    @media(max-width:650px){.app{display:block}.sidebar{position:fixed;z-index:10;left:0;right:0;bottom:0;top:auto;padding:8px 7px calc(8px + env(safe-area-inset-bottom));border-right:0;border-top:1px solid var(--line);display:block;background:#091222f5}.brand,.nav-label,.side-note{display:none}.nav{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}.nav button{padding:8px 3px;display:flex;flex-direction:column;gap:2px;text-align:center;font-size:10px}.nav .ico{font-size:17px}.main{padding:20px 14px 100px}.topbar{margin-bottom:18px}.status{font-size:0;padding:10px}.status .dot{width:9px;height:9px}.welcome{padding:21px}.welcome-mark{font-size:42px;padding:0}.cards{gap:9px}.feature{padding:13px;min-height:130px}.panel{padding:15px}.chat-form{gap:6px}.chat-form .primary{padding:10px 13px}.bubble{max-width:92%}.form-row{align-items:stretch;flex-direction:column;gap:0}.section-title{margin-top:22px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">V</div><div><strong>veletti</strong><small>seu espaço inteligente</small></div></div>
+    <div class="nav-label">Menu principal</div>
+    <nav class="nav" aria-label="Menu principal">
+      <button class="active" data-view="home"><span class="ico">⌂</span>Início</button>
+      <button data-view="chat"><span class="ico">✧</span>Assistente IA</button>
+      <button data-view="study"><span class="ico">▤</span>Estudos</button>
+      <button data-view="organize"><span class="ico">✓</span>Organização</button>
+      <button data-view="finance"><span class="ico">◈</span>Finanças</button>
+    </nav>
+    <div class="side-note"><b>Seu espaço, suas ideias.</b><p>Organize o dia, aprenda coisas novas e acompanhe seus objetivos com o Veletti.</p></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div><div class="eyebrow">Bem-vindo ao Veletti</div><h1 id="pageTitle">Seu espaço começa aqui.</h1></div>
+      <div class="status"><span class="dot"></span><span>Plataforma ativa</span></div>
+    </header>
+
+    <section class="view active" id="view-home">
+      <div class="welcome">
+        <div><div class="eyebrow">Ideias em movimento</div><h2>Olá! Vamos fazer acontecer?</h2><p>Um só lugar para conversar com a IA, estudar, organizar suas tarefas e aprender a cuidar do dinheiro.</p></div>
+        <div class="welcome-mark">✧</div>
+      </div>
+      <div class="section-title"><h2>O que você quer fazer?</h2><span>Escolha uma área</span></div>
+      <div class="cards">
+        <article class="feature" data-open="chat"><div class="feature-icon">✧</div><b>Assistente inteligente</b><p>Faça perguntas e tenha ideias com ajuda da IA.</p></article>
+        <article class="feature" data-open="study"><div class="feature-icon">▤</div><b>Área de estudos</b><p>Entenda matérias e prepare seus estudos.</p></article>
+        <article class="feature" data-open="organize"><div class="feature-icon">✓</div><b>Organização</b><p>Monte sua lista e acompanhe suas tarefas.</p></article>
+        <article class="feature" data-open="finance"><div class="feature-icon">◈</div><b>Educação financeira</b><p>Registre valores e acompanhe seu planejamento.</p></article>
+      </div>
+      <div class="section-title"><h2>Seu painel</h2><span>Resumo neste aparelho</span></div>
+      <div class="stat-grid">
+        <div class="stat"><small>Tarefas pendentes</small><strong id="homeTasks">0</strong></div>
+        <div class="stat"><small>Registros financeiros</small><strong id="homeMoney">0</strong></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-chat">
+      <div class="view-head"><h2>Assistente Veletti</h2><p>Converse, tire dúvidas e transforme ideias em próximos passos.</p></div>
+      <div class="panel chat-layout">
+        <div class="suggestions">
+          <button data-prompt="Me ajude a organizar minha semana.">Organizar minha semana</button>
+          <button data-prompt="Explique um assunto escolar de um jeito simples.">Aprender um assunto</button>
+          <button data-prompt="Me dê ideias para começar um projeto.">Criar um projeto</button>
+        </div>
+        <div class="chat-box" id="chatBox" aria-live="polite"><div class="bubble bot"><small>VELETTI IA</small>Oi! Eu sou o assistente do Veletti. O que você gostaria de fazer hoje?</div></div>
+        <form class="chat-form" id="chatForm"><input id="chatInput" maxlength="4000" placeholder="Escreva sua mensagem..." autocomplete="off" required><button class="primary" id="sendButton">Enviar ↗</button></form>
+        <div class="notice" id="chatNotice">O chat com IA precisa de uma chave de API configurada no servidor. Suas chaves nunca devem ser colocadas neste arquivo ou no navegador.</div>
+      </div>
+    </section>
+
+    <section class="view" id="view-study">
+      <div class="view-head"><h2>Área de estudos</h2><p>Use o assistente como tutor para entender os conteúdos e praticar.</p></div>
+      <div class="grid-two">
+        <div class="panel"><div class="eyebrow">Comece por aqui</div><h3>O que você quer estudar?</h3><div class="field"><label for="studySubject">Matéria ou assunto</label><input id="studySubject" placeholder="Ex.: matemática, história, inglês"></div><div class="field"><label for="studyGoal">O que você precisa entender?</label><input id="studyGoal" placeholder="Ex.: frações, Revolução Industrial..."></div><button class="primary" id="studyStart">Estudar com o Veletti ↗</button></div>
+        <div class="panel"><div class="eyebrow">Dica de aprendizagem</div><h3>Aprender um pouco por vez</h3><p style="color:var(--muted)">Peça uma explicação simples, tente resolver um exemplo e depois confira sua resposta. Assim você aprende de verdade.</p><button class="secondary" data-chat="study">Abrir tutor de estudos</button></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-organize">
+      <div class="view-head"><h2>Minha organização</h2><p>Adicione tarefas e marque cada uma quando terminar.</p></div>
+      <div class="grid-two">
+        <div class="panel"><div class="eyebrow">Nova tarefa</div><form id="taskForm"><div class="field"><label for="taskInput">O que precisa fazer?</label><input id="taskInput" maxlength="100" placeholder="Ex.: estudar matemática" required></div><button class="primary">Adicionar tarefa +</button></form><div class="task-list" id="taskList"></div></div>
+        <div class="panel"><div class="eyebrow">Planejamento</div><h3>Uma coisa de cada vez.</h3><p style="color:var(--muted)">Escolha até três prioridades para começar. Quando terminar, marque a tarefa e siga para a próxima.</p><div class="stat"><small>Tarefas concluídas</small><strong id="doneCount">0</strong></div><p class="notice">As tarefas ficam salvas neste navegador, neste aparelho.</p></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-finance">
+      <div class="view-head"><h2>Educação financeira</h2><p>Registre entradas e gastos simples para acompanhar seu planejamento.</p></div>
+      <div class="grid-two">
+        <div class="panel"><div class="eyebrow">Novo registro</div><form id="moneyForm"><div class="field"><label for="moneyDescription">Descrição</label><input id="moneyDescription" maxlength="70" placeholder="Ex.: mesada, lanche, economia" required></div><div class="form-row"><div class="field"><label for="moneyValue">Valor (R$)</label><input id="moneyValue" type="number" min="0.01" max="1000000" step="0.01" placeholder="0,00" required></div><div class="field"><label for="moneyType">Tipo</label><select id="moneyType"><option value="out">Gasto</option><option value="in">Entrada</option></select></div></div><button class="primary">Salvar registro +</button></form><p class="notice">Não informe dados bancários, senhas ou números de cartão.</p></div>
+        <div class="panel"><div class="eyebrow">Resumo</div><div class="stat-grid"><div class="stat"><small>Entradas</small><strong id="totalIn">R$ 0,00</strong></div><div class="stat"><small>Gastos</small><strong id="totalOut">R$ 0,00</strong></div></div><div class="stat" style="margin-top:10px"><small>Saldo dos registros</small><strong id="balance">R$ 0,00</strong></div></div>
+      </div>
+      <div class="section-title"><h2>Histórico</h2><span>Registros locais</span></div><div class="entry-list" id="moneyList"></div>
+      <p class="notice">Este é um organizador educativo, não uma conta bancária nem uma recomendação de investimento. Os registros ficam salvos apenas neste navegador.</p>
+    </section>
+    <div class="footer">VELETTI · Seu espaço inteligente · Versão inicial</div>
+  </main>
+</div>
+<script>
+  const titles = {home:"Seu espaço começa aqui.",chat:"Converse com o Veletti.",study:"Aprender fica mais simples.",organize:"Organize suas ideias.",finance:"Cuide dos seus planos."};
+  const views = ["home","chat","study","organize","finance"];
+  const readStore = (key) => { try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch { return []; } };
+  const saveStore = (key,value) => localStorage.setItem(key,JSON.stringify(value));
+  function openView(name) {
+    views.forEach(v => document.getElementById("view-"+v).classList.toggle("active",v===name));
+    document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("active",b.dataset.view===name));
+    document.getElementById("pageTitle").textContent = titles[name] || titles.home;
+    if(name==="organize") renderTasks();
+    if(name==="finance") renderMoney();
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+  document.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>openView(b.dataset.view)));
+  document.querySelectorAll("[data-open]").forEach(b=>b.addEventListener("click",()=>openView(b.dataset.open)));
+  document.querySelectorAll("[data-chat]").forEach(b=>b.addEventListener("click",()=>openView("chat")));
+  document.querySelectorAll("[data-prompt]").forEach(b=>b.addEventListener("click",()=>{document.getElementById("chatInput").value=b.dataset.prompt;document.getElementById("chatInput").focus()}));
+
+  const chatBox = document.getElementById("chatBox");
+  function addBubble(text,who) {
+    const el=document.createElement("div");el.className="bubble "+who;
+    const small=document.createElement("small");small.textContent=who==="user"?"VOCÊ":"VELETTI IA";
+    const content=document.createTextNode(text);el.append(small,content);chatBox.appendChild(el);chatBox.scrollTop=chatBox.scrollHeight;
+  }
+  async function sendChat(message,mode="chat") {
+    if(!message.trim()) return;
+    addBubble(message,"user");
+    const button=document.getElementById("sendButton");button.disabled=true;button.textContent="Enviando…";
+    try {
+      const response=await fetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,mode})});
+      const data=await response.json();
+      if(!response.ok) throw new Error(data.error||"Não foi possível responder.");
+      addBubble(data.answer,"bot");
+      document.getElementById("chatNotice").textContent=data.reviewedByClaude?"Resposta revisada por duas IAs.":"Resposta gerada pelo assistente.";
+    } catch(error) {
+      addBubble(error.message+" Você ainda pode usar as áreas de tarefas e finanças enquanto a IA é configurada.","bot");
+    } finally {button.disabled=false;button.textContent="Enviar ↗";}
+  }
+  document.getElementById("chatForm").addEventListener("submit",e=>{e.preventDefault();const input=document.getElementById("chatInput");const value=input.value.trim();input.value="";sendChat(value);});
+  document.getElementById("studyStart").addEventListener("click",()=>{
+    const subject=document.getElementById("studySubject").value.trim();const goal=document.getElementById("studyGoal").value.trim();
+    if(!subject||!goal){alert("Preencha a matéria e o assunto que quer estudar.");return;}
+    openView("chat");sendChat("Quero estudar "+subject+". Me ajude a entender: "+goal+". Explique em português simples e dê um exemplo para eu praticar.","study");
+  });
+
+  function renderTasks(){
+    const tasks=readStore("veletti_tasks");const list=document.getElementById("taskList");list.replaceChildren();
+    if(!tasks.length){const empty=document.createElement("div");empty.className="empty";empty.textContent="Suas tarefas aparecerão aqui.";list.append(empty);}
+    tasks.forEach(task=>{
+      const row=document.createElement("label");row.className="task"+(task.done?" done":"");
+      const check=document.createElement("input");check.type="checkbox";check.checked=task.done;check.addEventListener("change",()=>{const all=readStore("veletti_tasks");const item=all.find(x=>x.id===task.id);if(item)item.done=check.checked;saveStore("veletti_tasks",all);renderTasks();});
+      const span=document.createElement("span");span.textContent=task.text;
+      const del=document.createElement("button");del.type="button";del.setAttribute("aria-label","Excluir tarefa");del.textContent="×";del.addEventListener("click",()=>{saveStore("veletti_tasks",readStore("veletti_tasks").filter(x=>x.id!==task.id));renderTasks();});
+      row.append(check,span,del);list.append(row);
+    });
+    document.getElementById("doneCount").textContent=tasks.filter(t=>t.done).length;
+    document.getElementById("homeTasks").textContent=tasks.filter(t=>!t.done).length;
+  }
+  document.getElementById("taskForm").addEventListener("submit",e=>{e.preventDefault();const input=document.getElementById("taskInput");const tasks=readStore("veletti_tasks");tasks.unshift({id:Date.now(),text:input.value.trim(),done:false});saveStore("veletti_tasks",tasks);input.value="";renderTasks();});
+  function money(n){return n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});}
+  function renderMoney(){
+    const entries=readStore("veletti_money");const ins=entries.filter(x=>x.type==="in").reduce((a,x)=>a+x.value,0);const outs=entries.filter(x=>x.type==="out").reduce((a,x)=>a+x.value,0);
+    document.getElementById("totalIn").textContent=money(ins);document.getElementById("totalOut").textContent=money(outs);document.getElementById("balance").textContent=money(ins-outs);
+    document.getElementById("homeMoney").textContent=entries.length;
+    const list=document.getElementById("moneyList");list.replaceChildren();
+    if(!entries.length){const empty=document.createElement("div");empty.className="empty";empty.textContent="Nenhum registro por enquanto.";list.append(empty);}
+    entries.forEach(item=>{const row=document.createElement("div");row.className="entry";const desc=document.createElement("span");desc.textContent=item.description+" · "+(item.type==="in"?"Entrada":"Gasto");const val=document.createElement("strong");val.className=item.type==="in"?"income":"";val.textContent=(item.type==="in"?"+ ":"− ")+money(item.value);row.append(desc,val);list.append(row);});
+  }
+  document.getElementById("moneyForm").addEventListener("submit",e=>{
+    e.preventDefault();const description=document.getElementById("moneyDescription").value.trim();const value=Number(document.getElementById("moneyValue").value);const type=document.getElementById("moneyType").value;
+    if(!description||!Number.isFinite(value)||value<=0){alert("Confira a descrição e o valor.");return;}
+    const entries=readStore("veletti_money");entries.unshift({description,value,type,date:new Date().toISOString()});saveStore("veletti_money",entries);
+    document.getElementById("moneyDescription").value="";document.getElementById("moneyValue").value="";renderMoney();
+  });
+  renderTasks();renderMoney();
+</script>
+</body>
+</html>
