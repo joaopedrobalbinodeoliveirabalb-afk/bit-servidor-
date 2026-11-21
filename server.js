@@ -9,7 +9,8 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(helmet());
+// A interface inicial usa CSS/JavaScript no próprio HTML; CSP será configurada ao separar os assets.
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
   origin: process.env.FRONTEND_URL
     ? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
