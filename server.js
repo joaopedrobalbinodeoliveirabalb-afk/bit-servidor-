@@ -245,6 +245,9 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
   }
 
   try {
+    // Só usar pesquisa na web quando o usuário pedir informação pesquisada ou atual.
+    // Isso evita consumir a cota de busca em conversas comuns.
+    const wantsWebSearch = /\b(pesquis(a|e|ar)|pesquise|pesquisar|procure na internet|busque na internet|na internet|na web|not[ií]cias|news|atualizado|atualizada|mais recente|[uú]ltimas|hoje|pre[cç]o atual|cota[cç][aã]o|quem ganhou|resultado de hoje|look up|search the web|latest|current news)\b/i.test(message);
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
       method: "POST",
       headers: {
@@ -255,7 +258,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
         model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
         input: req.footballContext ? message.trim() + "\n\n" + req.footballContext : message.trim(),
         system_instruction: modes[mode],
-        tools: (mode === "chat" || mode === "study") ? [{ type: "google_search" }] : undefined,
+        tools: (mode === "chat" || mode === "study") && wantsWebSearch ? [{ type: "google_search" }] : undefined,
         store: false
       }),
       signal: AbortSignal.timeout(60000)
