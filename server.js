@@ -177,7 +177,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
   if (!Object.prototype.hasOwnProperty.call(modes, mode)) {
     return res.status(400).json({ error: "Modo inválido." });
   }
-  if (mode === "chat" && /jogos?|partidas?|placar|resultado|quando joga|contra quem/i.test(message)) {\n    const football = await getFootballContext(message, history);\n    if (football?.directAnswer) return res.json({ answer: football.directAnswer, provider: "football" });\n    if (football?.context) req.footballContext = football.context;\n  }\n  if (!process.env.GEMINI_API_KEY) {
+  const hasFootballFollowUp = Array.isArray(history) && history.some((item) => item && item.role === "user" && /jogos?|partidas?|placar|resultado|quando joga|contra quem/i.test(String(item.content || ""))) && String(message).trim().length < 45;\n  if (mode === "chat" && (/jogos?|partidas?|placar|resultado|quando joga|contra quem/i.test(message) || hasFootballFollowUp)) {\n    const football = await getFootballContext(message, history);\n    if (football?.directAnswer) return res.json({ answer: football.directAnswer, provider: "football" });\n    if (football?.context) req.footballContext = football.context;\n  }\n  if (!process.env.GEMINI_API_KEY) {
     return res.json({ answer: demoAnswer(message, mode), demo: true });
   }
 
