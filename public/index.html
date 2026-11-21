@@ -147,7 +147,7 @@
       const section=document.createElement("div");section.className="source-links";
       const heading=document.createElement("b");heading.textContent="Fontes consultadas";section.append(heading);
       sources.forEach(source=>{
-        if(!source || typeof source.url!=="string" || !/^https?:\\/\\//i.test(source.url)) return;
+        if(!source || typeof source.url!=="string" || !(source.url.startsWith("https://") || source.url.startsWith("http://"))) return;
         const link=document.createElement("a");link.href=source.url;link.target="_blank";link.rel="noopener noreferrer";
         link.textContent=String(source.title||"Abrir fonte");section.append(link);
       });
