@@ -122,7 +122,7 @@
       const response=await fetch("/health",{headers:{"Accept":"application/json"}});
       if(!response.ok) throw new Error("health check failed");
       const data=await response.json();
-      statusText.textContent=data.openaiConfigured?"Servidor online · IA configurada":"Servidor online · IA pendente";
+      statusText.textContent=data.geminiConfigured?"Servidor online · Gemini configurada":"Servidor online · IA pendente";
       statusDot.style.background="#4ed6a0";
       statusDot.style.boxShadow="0 0 12px #4ed6a088";
       notice.textContent=data.geminiConfigured
