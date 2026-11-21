@@ -48,14 +48,14 @@ app.get("/health", (req, res) => {
 
 function demoAnswer(message, mode) {
   const question = message.trim();
-  if (/\\b(oi|olá|ola|bom dia|boa tarde|boa noite)\\b/i.test(question)) {
+  if (/\b(oi|olá|ola|bom dia|boa tarde|boa noite)\b/i.test(question)) {
     return "Olá! Sou o assistente do Veletti. Estou no modo demonstração gratuito, então minhas respostas são simples e pré-programadas. Como posso ajudar?";
   }
   if (/nome|quem é você|quem e voce|veletti/i.test(question)) {
     return "Eu sou o assistente do Veletti, uma plataforma para conversar, estudar, organizar tarefas e aprender sobre finanças. Esta é uma demonstração gratuita, não uma resposta gerada por uma IA online.";
   }
   if (mode === "study") {
-    return "Vamos estudar por etapas! Primeiro, identifique a ideia principal do assunto. Depois, veja um exemplo e tente explicar com suas próprias palavras. Esta resposta é de demonstração; a IA completa estará disponível quando a API tiver créditos.";
+    return "Vamos estudar por etapas! Primeiro, identifique a ideia principal do assunto. Depois, veja um exemplo e tente explicar com suas próprias palavras. Esta resposta é de demonstração; a IA completa estará disponível quando a chave da API estiver configurada e houver cota disponível.";
   }
   if (mode === "organize") {
     return "Uma boa forma de começar é anotar tudo, escolher até três prioridades e dividir cada tarefa em passos pequenos. Esta é uma resposta pré-programada do modo demonstração.";
@@ -113,7 +113,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
       .flatMap((step) => step.content || [])
       .filter((part) => part.type === "text" && typeof part.text === "string")
       .map((part) => part.text)
-      .join("\\n")
+      .join("\n")
       .trim();
 
     if (!answer) {
