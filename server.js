@@ -30,7 +30,7 @@ const assistantLimit = rateLimit({
 });
 
 const modes = {
-  chat: "Converse de forma clara, útil e respeitosa. Responda em português do Brasil e seja direto: comece pela resposta principal, sem introduções ou rodeios. REGRA DE CLAREZA SOBRE GALO: sempre que o usuário disser \\"Galo\\" e ainda não estiver claro pelo contexto que fala do time de futebol, pergunte exatamente: \\"Você está falando do Atlético Mineiro?\\". Não presuma que é o Atlético Mineiro antes da confirmação. Depois que o usuário confirmar, use Atlético Mineiro como significado de Galo no restante da conversa. Para assuntos que mudam com o tempo — especialmente jogos, adversários, datas, horários, escalações e placares — não trate informações antigas como atuais. Só informe dados atuais se tiver uma fonte atualizada; se não tiver, diga diretamente que não conseguiu confirmar. Nunca invente adversários, datas ou resultados.",
+  chat: "Converse de forma clara, útil e respeitosa. Responda em português do Brasil e seja direto: comece pela resposta principal, sem introduções ou rodeios. REGRA DE CLAREZA SOBRE GALO: sempre que o usuário disser \"Galo\" e ainda não estiver claro pelo contexto que fala do time de futebol, pergunte exatamente: \"Você está falando do Atlético Mineiro?\". Não presuma que é o Atlético Mineiro antes da confirmação. Depois que o usuário confirmar, use Atlético Mineiro como significado de Galo no restante da conversa. Para assuntos que mudam com o tempo — especialmente jogos, adversários, datas, horários, escalações e placares — não trate informações antigas como atuais. Só informe dados atuais se tiver uma fonte atualizada; se não tiver, diga diretamente que não conseguiu confirmar. Nunca invente adversários, datas ou resultados.",
   study: "Você é um tutor paciente. Explique em português simples, passo a passo, e ajude o estudante a aprender.",
   organize: "Você é um assistente de organização. Ajude a dividir objetivos em tarefas realistas e etapas práticas.",
   finance: "Você é um educador financeiro. Explique orçamento, economia e planejamento de forma educativa. Nunca peça senhas, dados bancários ou informações confidenciais."
@@ -47,27 +47,27 @@ app.get("/health", (req, res) => {
 });
 
 function normalizeTeamName(value) {
-  return String(value || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim();
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
 function isAffirmative(value) {
-  return /^(sim|isso|exatamente|sou|e esse|esse mesmo|correto)[.!\\s]*$/i.test(String(value || "").trim());
+  return /^(sim|isso|exatamente|sou|e esse|esse mesmo|correto)[.!\s]*$/i.test(String(value || "").trim());
 }
 
 function extractTeamFromText(value) {
-  const text = String(value || "").replace(/\\s+/g, " ").trim();
+  const text = String(value || "").replace(/\s+/g, " ").trim();
   const patterns = [
-    /(?:pr[oó]xim[oa]s?\\s+)?jogos?\\s+(?:do|da|de)\\s+(.+?)(?:[?.!,]|$)/i,
-    /partidas?\\s+(?:do|da|de)\\s+(.+?)(?:[?.!,]|$)/i,
-    /(?:resultado|placar)\\s+(?:do|da|de)\\s+(.+?)(?:[?.!,]|$)/i,
-    /quando\\s+(?:o|a)?\\s*([a-zÀ-ÿ][a-zÀ-ÿ .'-]{1,45}?)\\s+(?:joga|vai jogar|jogou)/i,
-    /quando\\s+joga\\s+(?:o|a)?\\s*(.+?)(?:[?.!,]|$)/i,
-    /contra\\s+quem\\s+joga\\s+(?:o|a)?\\s*(.+?)(?:[?.!,]|$)/i
+    /(?:pr[oó]xim[oa]s?\s+)?jogos?\s+(?:do|da|de)\s+(.+?)(?:[?.!,]|$)/i,
+    /partidas?\s+(?:do|da|de)\s+(.+?)(?:[?.!,]|$)/i,
+    /(?:resultado|placar)\s+(?:do|da|de)\s+(.+?)(?:[?.!,]|$)/i,
+    /quando\s+(?:o|a)?\s*([a-zÀ-ÿ][a-zÀ-ÿ .'-]{1,45}?)\s+(?:joga|vai jogar|jogou)/i,
+    /quando\s+joga\s+(?:o|a)?\s*(.+?)(?:[?.!,]|$)/i,
+    /contra\s+quem\s+joga\s+(?:o|a)?\s*(.+?)(?:[?.!,]|$)/i
   ];
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match && match[1]) {
-      return match[1].replace(/\\b(hoje|amanh[aã]|agora|na pr[oó]xima rodada|na pr[oó]xima partida)\\b/ig, "").trim();
+      return match[1].replace(/\b(hoje|amanh[aã]|agora|na pr[oó]xima rodada|na pr[oó]xima partida)\b/ig, "").trim();
     }
   }
   return null;
@@ -77,12 +77,12 @@ async function getFootballContext(message, history) {
   const key = process.env.FOOTBALL_API_KEY;
   const conversation = Array.isArray(history) ? history.slice(-12) : [];
   const previousText = conversation.map((item) => String(item.content || "")).join(" ");
-  const galoMentioned = /\\bgalo\\b/i.test(message) || /\\bgalo\\b/i.test(previousText);
+  const galoMentioned = /\bgalo\b/i.test(message) || /\bgalo\b/i.test(previousText);
   const confirmedGalo = galoMentioned &&
-    /Você está falando do Atlético Mineiro\\?/i.test(previousText) &&
+    /Você está falando do Atlético Mineiro\?/i.test(previousText) &&
     isAffirmative(message);
-  if (/\\bgalo\\b/i.test(message) && !confirmedGalo &&
-      !/Você está falando do Atlético Mineiro\\?/i.test(previousText)) {
+  if (/\bgalo\b/i.test(message) && !confirmedGalo &&
+      !/Você está falando do Atlético Mineiro\?/i.test(previousText)) {
     return { directAnswer: "Você está falando do Atlético Mineiro?" };
   }
 
@@ -137,7 +137,7 @@ async function getFootballContext(message, history) {
     });
     return {
       context: "DADOS ATUALIZADOS CONSULTADOS NA API-FOOTBALL. Use somente estes dados para responder sobre jogos; não invente nem altere datas, horários ou adversários. Time identificado: " +
-        selected.team.name + ". Próximos jogos:\\n" + lines.join("\\n")
+        selected.team.name + ". Próximos jogos:\n" + lines.join("\n")
     };
   } catch (error) {
     console.error("Football API error:", error.message);
@@ -177,7 +177,10 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
   if (!Object.prototype.hasOwnProperty.call(modes, mode)) {
     return res.status(400).json({ error: "Modo inválido." });
   }
-  const hasFootballFollowUp = Array.isArray(history) && history.some((item) => item && item.role === "user" && /jogos?|partidas?|placar|resultado|quando joga|contra quem/i.test(String(item.content || ""))) && String(message).trim().length < 45;\n  if (mode === "chat" && (/jogos?|partidas?|placar|resultado|quando joga|contra quem/i.test(message) || hasFootballFollowUp)) {\n    const football = await getFootballContext(message, history);\n    if (football?.directAnswer) return res.json({ answer: football.directAnswer, provider: "football" });\n    if (football?.context) req.footballContext = football.context;\n  }\n  if (!process.env.GEMINI_API_KEY) {
+  const hasFootballFollowUp = Array.isArray(history) && history.some((item) => item && item.role === "user" && /jogos?|partidas?|placar|resultado|quando joga|contra quem/i.test(String(item.content || ""))) && String(message).trim().length < 45;
+  if (mode === "chat" && (/jogos?|partidas?|placar|resultado|quando joga|contra quem/i.test(message) || hasFootballFollowUp)) {
+    const football = await getFootballContext(message, history);\n    if (football?.directAnswer) return res.json({ answer: football.directAnswer, provider: "football" });\n    if (football?.context) req.footballContext = football.context;\n  }
+  if (!process.env.GEMINI_API_KEY) {
     return res.json({ answer: demoAnswer(message, mode), demo: true });
   }
 
@@ -190,7 +193,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
       },
       body: JSON.stringify({
         model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
-        input: req.footballContext ? message.trim() + "\\n\\n" + req.footballContext : message.trim(),
+        input: req.footballContext ? message.trim() + "\n\n" + req.footballContext : message.trim(),
         system_instruction: modes[mode],
         store: false
       }),
