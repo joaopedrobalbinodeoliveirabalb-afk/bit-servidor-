@@ -255,6 +255,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
         model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
         input: req.footballContext ? message.trim() + "\n\n" + req.footballContext : message.trim(),
         system_instruction: modes[mode],
+        tools: (mode === "chat" || mode === "study") ? [{ type: "google_search" }] : undefined,
         store: false
       }),
       signal: AbortSignal.timeout(60000)
@@ -270,19 +271,31 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
       });
     }
 
-    const answer = (data.steps || [])
+    const outputParts = (data.steps || [])
       .filter((step) => step.type === "model_output")
       .flatMap((step) => step.content || [])
-      .filter((part) => part.type === "text" && typeof part.text === "string")
-      .map((part) => part.text)
-      .join("\n")
-      .trim();
+      .filter((part) => part.type === "text" && typeof part.text === "string");
+    const answer = outputParts.map((part) => part.text).join("\n").trim();
+    const sourceMap = new Map();
+    for (const part of outputParts) {
+      for (const annotation of part.annotations || []) {
+        if (annotation.type === "url_citation" &&
+            typeof annotation.url === "string" &&
+            /^https?:\/\//i.test(annotation.url)) {
+          sourceMap.set(annotation.url, {
+            title: String(annotation.title || "Fonte consultada").slice(0, 180),
+            url: annotation.url
+          });
+        }
+      }
+    }
+    const sources = Array.from(sourceMap.values()).slice(0, 8);
 
     if (!answer) {
       return res.status(502).json({ error: "A IA não retornou uma resposta válida." });
     }
 
-    return res.json({ answer, provider: "gemini" });
+    return res.json({ answer, provider: "gemini", sources });
   } catch (error) {
     console.error("Gemini assistant error:", error.message);
     return res.status(500).json({ error: "Ocorreu um erro ao conversar com o Veletti." });
