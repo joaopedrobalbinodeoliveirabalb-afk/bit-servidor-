@@ -37,9 +37,16 @@ const modes = {
 };
 
 app.get("/health", (req, res) => {
+  const openaiKeyPresent = typeof process.env.OPENAI_API_KEY === "string"
+    && process.env.OPENAI_API_KEY.trim().length > 0;
+  const openaiRelatedVariableNames = Object.keys(process.env)
+    .filter((name) => name.toUpperCase().includes("OPENAI"));
+
   res.json({
     status: "ok",
-    openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    openaiConfigured: openaiKeyPresent,
+    openaiKeyPresent,
+    openaiRelatedVariableNames,
     anthropicConfigured: Boolean(process.env.ANTHROPIC_API_KEY)
   });
 });
