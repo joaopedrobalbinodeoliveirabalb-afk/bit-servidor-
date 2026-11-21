@@ -51,6 +51,26 @@ app.get("/health", (req, res) => {
   });
 });
 
+function demoAnswer(message, mode) {
+  const question = message.trim();
+  if (/\\b(oi|olá|ola|bom dia|boa tarde|boa noite)\\b/i.test(question)) {
+    return "Olá! Sou o assistente do Veletti. Estou no modo demonstração gratuito, então minhas respostas são simples e pré-programadas. Como posso ajudar?";
+  }
+  if (/nome|quem é você|quem e voce|veletti/i.test(question)) {
+    return "Eu sou o assistente do Veletti, uma plataforma para conversar, estudar, organizar tarefas e aprender sobre finanças. Esta é uma demonstração gratuita, não uma resposta gerada por uma IA online.";
+  }
+  if (mode === "study") {
+    return "Vamos estudar por etapas! Primeiro, identifique a ideia principal do assunto. Depois, veja um exemplo e tente explicar com suas próprias palavras. Esta resposta é de demonstração; a IA completa estará disponível quando a API tiver créditos.";
+  }
+  if (mode === "organize") {
+    return "Uma boa forma de começar é anotar tudo, escolher até três prioridades e dividir cada tarefa em passos pequenos. Esta é uma resposta pré-programada do modo demonstração.";
+  }
+  if (mode === "finance") {
+    return "Para organizar seu dinheiro, registre entradas e gastos, separe uma meta de economia e confira os valores com frequência. Não compartilhe senhas ou dados bancários. Esta é uma resposta pré-programada do modo demonstração.";
+  }
+  return "Recebi sua mensagem: \"" + question.slice(0, 300) + "\". O chat está funcionando no modo demonstração gratuito, com respostas pré-programadas. Para responder perguntas variadas com inteligência artificial, será necessário ter créditos disponíveis na API.";
+}
+
 app.post("/api/assistant", assistantLimit, async (req, res) => {
   const { message, mode = "chat" } = req.body || {};
 
@@ -64,9 +84,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     return res.status(400).json({ error: "Modo inválido." });
   }
   if (!process.env.OPENAI_API_KEY) {
-    return res.status(503).json({
-      error: "O chat ainda precisa ser conectado à API de inteligência artificial. Configure OPENAI_API_KEY nas variáveis privadas do servidor."
-    });
+    return res.json({ answer: demoAnswer(message, mode), demo: true });
   }
 
   try {
@@ -87,6 +105,10 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     const firstData = await firstResponse.json();
     if (!firstResponse.ok) {
       console.error("OpenAI API error:", firstData.error?.message || firstResponse.status);
+      const apiErrorCode = firstData.error?.code || firstData.error?.type;
+      if (apiErrorCode === "insufficient_quota" || apiErrorCode === "billing_hard_limit_reached") {
+        return res.json({ answer: demoAnswer(message, mode), demo: true });
+      }
       return res.status(502).json({ error: "A IA não conseguiu responder. Confira a configuração da API." });
     }
 
