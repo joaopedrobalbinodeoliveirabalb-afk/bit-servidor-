@@ -42,6 +42,7 @@ const modes = {
 const globalInstruction = [
   "REGRAS GERAIS DO VELETTI:",
   "- Responda sempre em português do Brasil, salvo se o usuário pedir outro idioma.",
+  "- DATA ATUAL DE REFERÊNCIA: " + new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "long", year: "numeric" }) + ". O ano atual é " + new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", year: "numeric" }) + ". Se perguntarem que dia, mês ou ano é hoje, responda usando esta data, nunca uma data aprendida no treinamento.",
   "- Comece respondendo ao pedido principal. Use linguagem natural, clara e organizada; evite repetir a pergunta.",
   "- Atenda perguntas de conhecimento geral em várias áreas: ciências, história, geografia, matemática, tecnologia, cultura, educação, natureza, sociedade e outros assuntos seguros.",
   "- Para fatos que podem mudar, use pesquisa atualizada quando disponível. Para conhecimento atemporal, não aplique filtros de notícias recentes.",
