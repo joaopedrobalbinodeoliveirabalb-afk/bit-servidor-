@@ -273,9 +273,10 @@ async function searchBraveWeb(query) {
     headers: { "Accept": "application/json", "X-Subscription-Token": key },
     signal: AbortSignal.timeout(15000)
   });
-  if (!response.ok) throw new Error(response.status === 429
-    ? "A pesquisa atingiu o limite do provedor."
-    : "O provedor de pesquisa não respondeu corretamente.");
+  if (!response.ok) {
+    // Registra somente o código HTTP; nunca registra a chave de API.
+    throw new Error("Brave Search respondeu com HTTP " + response.status + ".");
+  }
   const data = await response.json();
   return (data.web?.results || []).slice(0, 6).filter(item =>
     item && typeof item.url === "string" && /^https?:\/\//i.test(item.url)
