@@ -331,7 +331,12 @@ async function callCloudflareFallback(message, history, mode, footballContext, w
         "Authorization": "Bearer " + apiToken,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ prompt: prompt.slice(0, 24000) }),
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: (modes[mode] + "\n\n" + globalInstruction).slice(0, 12000) },
+          { role: "user", content: prompt.slice(0, 24000) }
+        ]
+      }),
       signal: AbortSignal.timeout(60000)
     }
   );
@@ -342,7 +347,11 @@ async function callCloudflareFallback(message, history, mode, footballContext, w
     throw new Error(providerMessage || "A IA reserva não conseguiu responder (HTTP " + response.status + ").");
   }
 
-  const answer = data.result?.response || data.result?.output_text;
+  const answer =
+    data.result?.response ||
+    data.result?.output_text ||
+    data.result?.choices?.[0]?.message?.content ||
+    data.result?.content?.[0]?.text;
   if (typeof answer !== "string" || !answer.trim()) {
     throw new Error("A IA reserva não retornou uma resposta válida.");
   }
@@ -404,10 +413,6 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     if (football?.directAnswer) return res.json({ answer: football.directAnswer, provider: "football" });
     if (football?.context) req.footballContext = football.context;
   }
-  if (!process.env.GEMINI_API_KEY) {
-    return res.json({ answer: demoAnswer(message, mode), demo: true });
-  }
-
   // Estas variáveis ficam fora do try para também estarem disponíveis no fallback de rede.
   const wantsWebSearch = (mode === "chat" || mode === "study" || mode === "owner") && wantsCurrentResearch(message);
   let webSources = [];
@@ -431,6 +436,33 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
         return res.status(502).json({ error: "Não consegui concluir a pesquisa agora. Confira a configuração do provedor e tente novamente." });
       }
     }
+    // Sem chave Gemini, tenta a Cloudflare antes de recorrer à resposta demonstrativa.
+    if (!process.env.GEMINI_API_KEY) {
+      const canUseCloudflare = !wantsWebSearch || webSources.length > 0;
+      if (canUseCloudflare) {
+        try {
+          const fallbackAnswer = await callCloudflareFallback(
+            message, history, mode, req.footballContext, webContext
+          );
+          if (fallbackAnswer) {
+            return res.json({
+              answer: fallbackAnswer,
+              provider: "cloudflare",
+              sources: webSources
+            });
+          }
+        } catch (fallbackError) {
+          console.error("Cloudflare fallback error (Gemini sem chave):", fallbackError.message);
+        }
+      }
+      if (wantsWebSearch && !webSources.length) {
+        return res.status(503).json({
+          error: "A pesquisa na internet não está disponível no momento. Configure um provedor de pesquisa ou a IA principal."
+        });
+      }
+      return res.json({ answer: demoAnswer(message, mode), demo: true });
+    }
+
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
       method: "POST",
       headers: {
