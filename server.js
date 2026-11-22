@@ -274,7 +274,9 @@ async function searchBraveWeb(query) {
     signal: AbortSignal.timeout(15000)
   });
   if (!response.ok) {
-    // Registra somente o código HTTP; nunca registra a chave de API.
+    // Registra somente o status e a mensagem pública do provedor; nunca registra a chave.
+    const detail = (await response.text()).slice(0, 500);
+    console.error("Brave Search HTTP " + response.status + ":", detail);
     throw new Error("Brave Search respondeu com HTTP " + response.status + ".");
   }
   const data = await response.json();
