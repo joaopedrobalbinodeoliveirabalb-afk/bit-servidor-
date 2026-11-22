@@ -51,6 +51,20 @@
         <div><div class="eyebrow">Ideias em movimento</div><h2>Olá! Vamos fazer acontecer?</h2><p>Um só lugar para conversar com a IA, estudar, organizar suas tarefas e aprender a cuidar do dinheiro.</p></div>
         <div class="welcome-mark">✧</div>
       </div>
+      <div class="panel" id="accountPanel" style="margin:18px 0">
+        <div class="eyebrow">Sua conta Veletti</div>
+        <h2 style="margin:6px 0 12px">Entrar ou criar conta</h2>
+        <p id="accountStatus" class="notice">Carregando acesso seguro…</p>
+        <form id="accountForm">
+          <div class="field"><label for="accountEmail">E-mail</label><input id="accountEmail" type="email" autocomplete="email" maxlength="254" placeholder="seuemail@exemplo.com" required></div>
+          <div class="field"><label for="accountPassword">Senha</label><input id="accountPassword" type="password" autocomplete="current-password" minlength="8" maxlength="128" placeholder="Mínimo de 8 caracteres" required></div>
+          <div class="form-row">
+            <button class="primary" type="submit" id="accountLogin">Entrar</button>
+            <button class="secondary" type="button" id="accountSignup">Criar conta</button>
+          </div>
+        </form>
+        <button class="secondary" type="button" id="accountLogout" style="display:none;margin-top:10px">Sair da conta</button>
+      </div>
       <div class="section-title"><h2>O que você quer fazer?</h2><span>Escolha uma área</span></div>
       <div class="cards">
         <article class="feature" data-open="chat"><div class="feature-icon">✧</div><b>Assistente inteligente</b><p>Faça perguntas e tenha ideias com ajuda da IA.</p></article>
@@ -128,11 +142,108 @@
   </main>
 </div>
 <script>
+  let supabaseClient = null;
+  let accountBusy = false;
+  function setAccountStatus(message) {
+    const el = document.getElementById("accountStatus");
+    if (el) el.textContent = message;
+  }
+  function loadSupabaseLibrary() {
+    return new Promise((resolve, reject) => {
+      if (window.supabase?.createClient) return resolve();
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+      script.onload = resolve;
+      script.onerror = () => reject(new Error("Não foi possível carregar a biblioteca de login."));
+      document.head.appendChild(script);
+    });
+  }
+  async function initAccount() {
+    const form = document.getElementById("accountForm");
+    const loginButton = document.getElementById("accountLogin");
+    const signupButton = document.getElementById("accountSignup");
+    const logoutButton = document.getElementById("accountLogout");
+    try {
+      const configResponse = await apiFetch("/api/auth/config");
+      const config = await configResponse.json();
+      if (!configResponse.ok) throw new Error(config.error || "Configuração de login pendente no servidor.");
+      await loadSupabaseLibrary();
+      supabaseClient = window.supabase.createClient(config.url, config.publishableKey);
+      const updateAccount = (user) => {
+        if (user) {
+          setAccountStatus("Conectado como " + user.email);
+          form.style.display = "none";
+          logoutButton.style.display = "inline-flex";
+        } else {
+          setAccountStatus("Você ainda não entrou. Use seu e-mail para acessar ou criar uma conta.");
+          form.style.display = "block";
+          logoutButton.style.display = "none";
+        }
+      };
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      updateAccount(sessionData.session?.user || null);
+      supabaseClient.auth.onAuthStateChange((_event, session) => updateAccount(session?.user || null));
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (accountBusy) return;
+        accountBusy = true;
+        loginButton.disabled = true;
+        signupButton.disabled = true;
+        try {
+          const email = document.getElementById("accountEmail").value.trim();
+          const password = document.getElementById("accountPassword").value;
+          const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          document.getElementById("accountPassword").value = "";
+        } catch (error) {
+          setAccountStatus(error.message || "Não foi possível entrar. Confira os dados.");
+        } finally {
+          accountBusy = false;
+          loginButton.disabled = false;
+          signupButton.disabled = false;
+        }
+      });
+      signupButton.addEventListener("click", async () => {
+        if (accountBusy) return;
+        accountBusy = true;
+        loginButton.disabled = true;
+        signupButton.disabled = true;
+        try {
+          const email = document.getElementById("accountEmail").value.trim();
+          const password = document.getElementById("accountPassword").value;
+          if (!email || password.length < 8) throw new Error("Informe um e-mail válido e uma senha com pelo menos 8 caracteres.");
+          const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: window.location.origin }
+          });
+          if (error) throw error;
+          if (data.session) setAccountStatus("Conta criada e conectada!");
+          else setAccountStatus("Cadastro iniciado! Confira sua caixa de entrada e confirme o e-mail para ativar a conta.");
+          document.getElementById("accountPassword").value = "";
+        } catch (error) {
+          setAccountStatus(error.message || "Não foi possível criar a conta.");
+        } finally {
+          accountBusy = false;
+          loginButton.disabled = false;
+          signupButton.disabled = false;
+        }
+      });
+      logoutButton.addEventListener("click", async () => {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) setAccountStatus(error.message);
+      });
+    } catch (error) {
+      setAccountStatus(error.message || "O login ainda não está disponível.");
+    }
+  }
+
   const API_BASE = "https://bit-servidor.onrender.com";
   const apiFetch = (path, options = {}) => fetch(API_BASE + path, {
     ...options,
     credentials: "include"
   });
+  initAccount();
 
   const titles = {home:"Seu espaço começa aqui.",chat:"Converse com o Veletti.",study:"Aprender fica mais simples.",organize:"Organize suas ideias.",finance:"Cuide dos seus planos.",owner:"Área exclusiva do proprietário."};
   const views = ["home","chat","study","organize","finance","owner"];
