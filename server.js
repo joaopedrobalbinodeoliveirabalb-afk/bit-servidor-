@@ -144,7 +144,6 @@ function getFootballIntent(message, history) {
 }
 
 async function getFootballContext(message, history) {
-  const key = process.env.API_NINJAS_KEY;
   const conversation = Array.isArray(history) ? history.slice(-12) : [];
   const previousText = conversation.map((item) => String(item.content || "")).join(" ");
   const galoMentioned = /\\bgalo\\b/i.test(message) || /\\bgalo\\b/i.test(previousText);
@@ -156,8 +155,8 @@ async function getFootballContext(message, history) {
     return { directAnswer: "Você está falando do Atlético Mineiro?" };
   }
 
-  if (!key) {
-    return { directAnswer: "A área de futebol está pronta para usar a fonte nova. Falta apenas configurar a variável API_NINJAS_KEY no Render com a chave gratuita da API Ninjas." };
+  if (!process.env.BRAVE_SEARCH_API_KEY) {
+    return { directAnswer: "A pesquisa de futebol precisa da variável BRAVE_SEARCH_API_KEY configurada no servidor." };
   }
 
   const combined = confirmedGalo
@@ -190,91 +189,31 @@ async function getFootballContext(message, history) {
   const normalizedQuery = normalizeTeamName(teamQuery);
   teamQuery = aliases[normalizedQuery] || teamQuery;
   const intent = getFootballIntent(message, history);
+  const year = new Date().getFullYear();
+  const today = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const searchQuery = intent === "live"
+    ? teamQuery + " jogo ao vivo placar futebol hoje " + year
+    : intent === "results"
+      ? teamQuery + " últimos resultados jogos futebol " + year
+      : teamQuery + " próximos jogos calendário partidas " + year;
 
   try {
-    const matchesUrl = new URL("https://api.api-ninjas.com/v1/soccermatches");
-    matchesUrl.searchParams.set("team", teamQuery);
-    const matchesResponse = await fetch(matchesUrl, {
-      headers: { "X-Api-Key": key, "Accept": "application/json" },
-      signal: AbortSignal.timeout(15000)
-    });
-
-    if (!matchesResponse.ok) {
-      const detail = (await matchesResponse.text()).slice(0, 300);
-      console.error("API Ninjas Football HTTP " + matchesResponse.status + ":", detail);
-      if (matchesResponse.status === 401 || matchesResponse.status === 403) {
-        return { directAnswer: "A chave gratuita da API de futebol não foi aceita. Confira se API_NINJAS_KEY foi salva corretamente no Render." };
-      }
-      if (matchesResponse.status === 429) {
-        return { directAnswer: "A consulta de futebol atingiu o limite temporário da fonte gratuita. Tente novamente mais tarde." };
-      }
-      throw new Error("Falha ao consultar partidas");
+    const results = await searchBraveWeb(searchQuery);
+    if (!results.length) {
+      return { directAnswer: "Não encontrei fontes atuais suficientes para confirmar os jogos de " + teamQuery + ". Tente novamente mais tarde." };
     }
-
-    const data = await matchesResponse.json();
-    const matches = Array.isArray(data) ? data : [];
-    const teamName = (value) => normalizeTeamName(value);
-    const teamMatches = matches.filter((item) =>
-      teamName(item.home_team?.name).includes(normalizeTeamName(teamQuery)) ||
-      teamName(item.away_team?.name).includes(normalizeTeamName(teamQuery)) ||
-      teamName(item.home_team?.abbreviation) === normalizeTeamName(teamQuery) ||
-      teamName(item.away_team?.abbreviation) === normalizeTeamName(teamQuery)
-    );
-
-    const now = Date.now();
-    const dated = teamMatches.map((item) => ({
-      ...item,
-      _date: item.start_time ? new Date(item.start_time).getTime() : (item.date ? new Date(item.date + "T12:00:00Z").getTime() : 0)
-    })).filter((item) => Number.isFinite(item._date) && item._date > 0);
-
-    let selected = [];
-    if (intent === "live") {
-      selected = dated.filter((item) => item.status === "in_progress");
-    } else if (intent === "results") {
-      selected = dated.filter((item) => item.status === "final").sort((a, b) => b._date - a._date).slice(0, 5);
-    } else {
-      selected = dated.filter((item) => item.status === "scheduled" && item._date >= now).sort((a, b) => a._date - b._date).slice(0, 5);
-    }
-
-    const clubNames = [...new Set(teamMatches.flatMap((item) => [item.home_team?.name, item.away_team?.name]).filter(Boolean))];
-    const selectedTeam = clubNames.find((name) => normalizeTeamName(name) === normalizeTeamName(teamQuery)) ||
-      clubNames.find((name) => normalizeTeamName(name).includes(normalizeTeamName(teamQuery))) || teamQuery;
-
-    if (!selected.length) {
-      const messages = {
-        live: "Não encontrei uma partida em andamento de " + selectedTeam + " neste momento. No plano gratuito, a fonte informa o status do jogo, mas não atualiza o placar nem o minuto ao vivo.",
-        results: "Não encontrei resultados finalizados recentes de " + selectedTeam + " na temporada atual.",
-        next: "Não encontrei próximos jogos cadastrados para " + selectedTeam + " na temporada atual."
-      };
-      return { directAnswer: messages[intent] };
-    }
-
-    const lines = selected.map((item) => {
-      const date = item.start_time
-        ? new Date(item.start_time).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })
-        : item.date || "data a confirmar";
-      const home = item.home_team?.name || "Mandante";
-      const away = item.away_team?.name || "Visitante";
-      const finished = item.status === "final";
-      const score = finished && Number.isFinite(item.home_score) && Number.isFinite(item.away_score)
-        ? " | placar: " + item.home_score + " x " + item.away_score
-        : "";
-      const status = item.status === "in_progress"
-        ? "em andamento (placar ao vivo indisponível no plano gratuito)"
-        : item.status === "final" ? "encerrado" : item.status || "não informado";
-      return "- " + home + " x " + away +
-        " | " + date + score +
-        " | competição: " + String(item.league || "não informada").toUpperCase() +
-        " | status: " + status;
-    });
-
-    const labels = { live: "Partida(s) em andamento", results: "Últimos resultados", next: "Próximos jogos" };
+    const snippets = results.slice(0, 5).map((item, index) =>
+      (index + 1) + ". " + item.title + (item.snippet ? "\\n" + item.snippet : "")
+    ).join("\\n\\n");
+    const labels = { live: "partidas ao vivo", results: "resultados recentes", next: "próximos jogos" };
     return {
-      directAnswer: selectedTeam + " — " + labels[intent] + " (temporada atual):\n" + lines.join("\n")
+      directAnswer: "Pesquisa sobre " + labels[intent] + " de " + teamQuery + " (consulta em " + today + "):\\n\\n" +
+        snippets + "\\n\\nConfira as fontes consultadas antes de considerar datas e horários como confirmados.",
+      sources: results.slice(0, 5)
     };
   } catch (error) {
-    console.error("API Ninjas Football error:", error.message);
-    return { directAnswer: "Não consegui consultar os jogos agora. Tente novamente daqui a pouco." };
+    console.error("Football web search error:", error.message);
+    return { directAnswer: "Não consegui pesquisar os jogos agora. Confira a conexão de pesquisa e tente novamente." };
   }
 }
 
@@ -309,7 +248,7 @@ async function searchBraveWeb(query) {
 }
 
 function wantsCurrentResearch(message) {
-  return /\b(pesquis(a|as|e|em|ar)|pesquise(m)?|pesquisar|procure(m)? na internet|busque(m)? na internet|na internet|na web|not[ií]cias|news|atualizad[oa]s?|mais recente(s)?|[uú]ltimas?|hoje|agora|pre[cç]o atual|cota[cç][aã]o|quem ganhou|resultado de hoje|look up|search the web|latest|current news)\b/i.test(String(message || ""));
+  return /\\b(pesquis(a|as|e|em|ar)|pesquise(m)?|pesquisar|procure(m)? na internet|busque(m)? na internet|na internet|na web|not[ií]cias|news|atualizad[oa]s?|mais recente(s)?|[uú]ltimas?|hoje|agora|pre[cç]o atual|cota[cç][aã]o|quem ganhou|resultado de hoje|jogos?|partidas?|placar|futebol|classifica[cç][aã]o|tabela|look up|search the web|latest|current news)\\b/i.test(String(message || ""));
 }
 
 function demoAnswer(message, mode) {
@@ -432,7 +371,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
   const hasFootballFollowUp = Array.isArray(history) && history.some((item) => item && item.role === "user" && /jogos?|partidas?|placar|resultado|quando joga|contra quem|ao vivo|[uú]ltim[oa]s?/i.test(String(item.content || ""))) && String(message).trim().length < 60;
   if (mode === "chat" && (/jogos?|partidas?|placar|resultado|quando joga|contra quem|ao vivo|[uú]ltim[oa]s?|jogou/i.test(message) || hasFootballFollowUp)) {
     const football = await getFootballContext(message, history);
-    if (football?.directAnswer) return res.json({ answer: football.directAnswer, provider: "football" });
+    if (football?.directAnswer) return res.json({ answer: football.directAnswer, provider: "football", sources: football.sources || [] });
     if (football?.context) req.footballContext = football.context;
   }
   // Estas variáveis ficam fora do try para também estarem disponíveis no fallback de rede.
