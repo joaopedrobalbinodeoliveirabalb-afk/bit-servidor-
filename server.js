@@ -310,6 +310,45 @@ function demoAnswer(message, mode) {
   return "Recebi sua mensagem: \"" + question.slice(0, 300) + "\". O chat está funcionando no modo demonstração gratuito, com respostas pré-programadas. Para responder perguntas variadas com inteligência artificial, será necessário ter créditos disponíveis na API.";
 }
 
+async function callCloudflareFallback(message, history, mode, footballContext, webContext) {
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+  if (!accountId || !apiToken) return null;
+
+  const model = process.env.CLOUDFLARE_AI_MODEL || "@cf/zai-org/glm-4.7-flash";
+  if (!/^[a-zA-Z0-9_-]+$/.test(accountId) || !/^@[a-zA-Z0-9._/-]+$/.test(model)) {
+    throw new Error("Configuração inválida do provedor de IA reserva.");
+  }
+
+  const prompt = modes[mode] + "\n\n" + globalInstruction + "\n\n" +
+    buildConversationInput(message, history, footballContext) + (webContext || "");
+
+  const response = await fetch(
+    "https://api.cloudflare.com/client/v4/accounts/" + accountId + "/ai/run/" + model,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + apiToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ prompt: prompt.slice(0, 24000) }),
+      signal: AbortSignal.timeout(60000)
+    }
+  );
+
+  const data = await response.json();
+  if (!response.ok || data.success === false) {
+    const providerMessage = Array.isArray(data.errors) && data.errors[0]?.message;
+    throw new Error(providerMessage || "A IA reserva não conseguiu responder (HTTP " + response.status + ").");
+  }
+
+  const answer = data.result?.response || data.result?.output_text;
+  if (typeof answer !== "string" || !answer.trim()) {
+    throw new Error("A IA reserva não retornou uma resposta válida.");
+  }
+  return answer.trim();
+}
+
 function buildConversationInput(message, history, footballContext) {
   const turns = Array.isArray(history)
     ? history.slice(-12).filter((item) =>
@@ -409,10 +448,28 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     const data = await response.json();
     if (!response.ok) {
       console.error("Gemini API error:", data.error?.message || response.status);
+      const canUseFallback = (response.status === 429 || response.status >= 500) &&
+        (!wantsWebSearch || webSources.length > 0);
+      if (canUseFallback) {
+        try {
+          const fallbackAnswer = await callCloudflareFallback(
+            message, history, mode, req.footballContext, webContext
+          );
+          if (fallbackAnswer) {
+            return res.json({
+              answer: fallbackAnswer,
+              provider: "cloudflare",
+              sources: webSources
+            });
+          }
+        } catch (fallbackError) {
+          console.error("Cloudflare fallback error:", fallbackError.message);
+        }
+      }
       return res.status(response.status === 429 ? 429 : 502).json({
         error: response.status === 429
-          ? "A IA atingiu o limite gratuito por enquanto. Tente novamente mais tarde."
-          : "A IA não conseguiu responder. Confira a chave e a configuração do Gemini."
+          ? "A IA principal atingiu o limite e a IA reserva não está configurada ou disponível. Tente novamente mais tarde."
+          : "A IA principal não conseguiu responder e a IA reserva também não está disponível."
       });
     }
 
@@ -443,7 +500,24 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     return res.json({ answer, provider: "gemini", sources });
   } catch (error) {
     console.error("Gemini assistant error:", error.message);
-    return res.status(500).json({ error: "Ocorreu um erro ao conversar com o Veletti." });
+    try {
+      const fallbackAllowed = !wantsWebSearch || webSources.length > 0;
+      if (fallbackAllowed) {
+        const fallbackAnswer = await callCloudflareFallback(
+          message, history, mode, req.footballContext, webContext
+        );
+        if (fallbackAnswer) {
+          return res.json({
+            answer: fallbackAnswer,
+            provider: "cloudflare",
+            sources: webSources
+          });
+        }
+      }
+    } catch (fallbackError) {
+      console.error("Cloudflare fallback error:", fallbackError.message);
+    }
+    return res.status(500).json({ error: "Ocorreu um erro ao conversar com o Veletti. A IA reserva não está configurada ou disponível." });
   }
 });
 
