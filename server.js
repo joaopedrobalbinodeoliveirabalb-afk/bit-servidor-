@@ -43,6 +43,8 @@ const globalInstruction = [
   "REGRAS GERAIS DO VELETTI:",
   "- Responda sempre em português do Brasil, salvo se o usuário pedir outro idioma.",
   "- Comece respondendo ao pedido principal. Use linguagem natural, clara e organizada; evite repetir a pergunta.",
+  "- Atenda perguntas de conhecimento geral em várias áreas: ciências, história, geografia, matemática, tecnologia, cultura, educação, natureza, sociedade e outros assuntos seguros.",
+  "- Para fatos que podem mudar, use pesquisa atualizada quando disponível. Para conhecimento atemporal, não aplique filtros de notícias recentes.",
   "- Diferencie fatos confirmados, estimativas e opiniões. Se não souber, diga isso com clareza em vez de inventar.",
   "- Não invente pesquisas, links, fontes, resultados, datas, preços ou funcionalidades que não foram confirmados.",
   "- Use ferramentas de pesquisa somente quando estiverem disponíveis e forem apropriadas; se não conseguir verificar algo atual, informe a limitação.",
@@ -274,7 +276,16 @@ async function searchBraveWeb(query, options = {}) {
 }
 
 function wantsCurrentResearch(message) {
-  return /\\b(pesquis(a|as|e|em|ar)|pesquise(m)?|pesquisar|procure(m)? na internet|busque(m)? na internet|na internet|na web|not[ií]cias|news|atualizad[oa]s?|mais recente(s)?|[uú]ltimas?|hoje|agora|pre[cç]o atual|cota[cç][aã]o|quem ganhou|resultado de hoje|jogos?|partidas?|placar|futebol|classifica[cç][aã]o|tabela|look up|search the web|latest|current news)\\b/i.test(String(message || ""));
+  const text = String(message || "").trim();
+  if (!text || text.length < 3) return false;
+
+  // Pesquisas explícitas, assuntos atuais e perguntas informativas de conhecimento geral.
+  // Perguntas simples de conversa não precisam consumir uma chamada de pesquisa.
+  const explicitSearch = /\b(pesquis(a|as|e|em|ar)|pesquise(m)?|pesquisar|procure(m)? na internet|busque(m)? na internet|na internet|na web|fontes|refer[eê]ncias|not[ií]cias|news|atualizad[oa]s?|mais recente(s)?|[uú]ltimas?|hoje|agora|pre[cç]o atual|cota[cç][aã]o|quem ganhou|resultado de hoje|jogos?|partidas?|placar|futebol|classifica[cç][aã]o|tabela|look up|search the web|latest|current news)\b/i.test(text);
+
+  const knowledgeQuestion = /^(quem|o que|qual|quais|quando|onde|por que|porque|como|explique|explique-me|me explique|me fala|me fale|fale sobre|conte sobre|resuma|resumo de|defina|qual foi|quem foi|quem foram|o que aconteceu|como funciona|para que serve)\b/i.test(text);
+
+  return explicitSearch || knowledgeQuestion;
 }
 
 function demoAnswer(message, mode) {
@@ -309,6 +320,9 @@ async function callCloudflareFallback(message, history, mode, footballContext, w
 
   const prompt =
     buildConversationInput(message, history, footballContext) + (webContext || "");
+  const researchInstruction = webContext
+    ? "\n\nAo usar os resultados de pesquisa, responda diretamente, confira se cada fonte realmente trata do assunto perguntado, não misture assuntos ou entidades parecidas e cite as fontes como [1], [2]. Se as fontes forem insuficientes ou divergirem, explique a limitação."
+    : "";
 
   const response = await fetch(
     "https://api.cloudflare.com/client/v4/accounts/" + accountId + "/ai/run/" + model,
@@ -320,7 +334,7 @@ async function callCloudflareFallback(message, history, mode, footballContext, w
       },
       body: JSON.stringify({
         messages: [
-          { role: "system", content: (modes[mode] + "\n\n" + globalInstruction).slice(0, 12000) },
+          { role: "system", content: (modes[mode] + "\n\n" + globalInstruction + researchInstruction).slice(0, 12000) },
           { role: "user", content: prompt.slice(0, 24000) }
         ]
       }),
@@ -409,7 +423,9 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     // Pesquisa externa opcional; a chave fica somente nas variáveis do servidor.
     if (wantsWebSearch && process.env.BRAVE_SEARCH_API_KEY) {
       try {
-        const freshness = /\b(hoje|agora|ao vivo|últimas horas)\b/i.test(message) ? "pd" : "pw";
+        const isBreaking = /\b(hoje|agora|ao vivo|últimas horas)\b/i.test(message);
+        const isRecent = /\b(últim[oa]s?|atual|atualizado|notícias|news|nesta semana|este mês|recente)\b/i.test(message);
+        const freshness = isBreaking ? "pd" : isRecent ? "pw" : undefined;
         webSources = await searchBraveWeb(message, { freshness, count: 8 });
         if (webSources.length) {
           webContext = "\n\nRESULTADOS DA PESQUISA NA WEB (use somente o que for relevante; não invente datas):\n" +
