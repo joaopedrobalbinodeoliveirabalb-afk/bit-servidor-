@@ -408,11 +408,13 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     return res.json({ answer: demoAnswer(message, mode), demo: true });
   }
 
+  // Estas variáveis ficam fora do try para também estarem disponíveis no fallback de rede.
+  const wantsWebSearch = (mode === "chat" || mode === "study" || mode === "owner") && wantsCurrentResearch(message);
+  let webSources = [];
+  let webContext = "";
+
   try {
     // Pesquisa externa opcional; a chave fica somente nas variáveis do servidor.
-    const wantsWebSearch = (mode === "chat" || mode === "study" || mode === "owner") && wantsCurrentResearch(message);
-    let webSources = [];
-    let webContext = "";
     if (wantsWebSearch && process.env.BRAVE_SEARCH_API_KEY) {
       try {
         webSources = await searchBraveWeb(message);
