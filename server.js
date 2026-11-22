@@ -259,6 +259,37 @@ async function getFootballContext(message, history) {
   }
 }
 
+
+async function searchBraveWeb(query) {
+  const key = process.env.BRAVE_SEARCH_API_KEY;
+  if (!key) return [];
+  const url = new URL("https://api.search.brave.com/res/v1/web/search");
+  url.searchParams.set("q", query.slice(0, 400));
+  url.searchParams.set("count", "6");
+  url.searchParams.set("country", "BR");
+  url.searchParams.set("search_lang", "pt");
+  const response = await fetch(url, {
+    headers: { "Accept": "application/json", "X-Subscription-Token": key },
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!response.ok) throw new Error(response.status === 429
+    ? "A pesquisa atingiu o limite do provedor."
+    : "O provedor de pesquisa não respondeu corretamente.");
+  const data = await response.json();
+  return (data.web?.results || []).slice(0, 6).filter(item =>
+    item && typeof item.url === "string" && /^https?:\/\//i.test(item.url)
+  ).map(item => ({
+    title: String(item.title || "Fonte consultada").slice(0, 180),
+    url: item.url,
+    snippet: String(item.description || "").slice(0, 700),
+    published: item.page_age || item.published || null
+  }));
+}
+
+function wantsCurrentResearch(message) {
+  return /\b(pesquis(a|as|e|em|ar)|pesquise(m)?|pesquisar|procure(m)? na internet|busque(m)? na internet|na internet|na web|not[ií]cias|news|atualizad[oa]s?|mais recente(s)?|[uú]ltimas?|hoje|agora|pre[cç]o atual|cota[cç][aã]o|quem ganhou|resultado de hoje|look up|search the web|latest|current news)\b/i.test(String(message || ""));
+}
+
 function demoAnswer(message, mode) {
   const question = message.trim();
   if (/\b(oi|olá|ola|bom dia|boa tarde|boa noite)\b/i.test(question)) {
@@ -339,9 +370,26 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
   }
 
   try {
-    // Só usar pesquisa na web quando o usuário pedir informação pesquisada ou atual.
-    // Isso evita consumir a cota de busca em conversas comuns.
-    const wantsWebSearch = /\b(pesquis(a|e|ar)|pesquise|pesquisar|procure na internet|busque na internet|na internet|na web|not[ií]cias|news|atualizado|atualizada|mais recente|[uú]ltimas|hoje|pre[cç]o atual|cota[cç][aã]o|quem ganhou|resultado de hoje|look up|search the web|latest|current news)\b/i.test(message);
+    // Pesquisa externa opcional; a chave fica somente nas variáveis do servidor.
+    const wantsWebSearch = (mode === "chat" || mode === "study" || mode === "owner") && wantsCurrentResearch(message);
+    let webSources = [];
+    let webContext = "";
+    if (wantsWebSearch && process.env.BRAVE_SEARCH_API_KEY) {
+      try {
+        webSources = await searchBraveWeb(message);
+        if (webSources.length) {
+          webContext = "\n\nRESULTADOS DA PESQUISA NA WEB (use somente o que for relevante; não invente datas):\n" +
+            webSources.map((source, index) =>
+              "[" + (index + 1) + "] " + source.title + "\nURL: " + source.url +
+              (source.published ? "\nData informada: " + source.published : "") +
+              (source.snippet ? "\nResumo: " + source.snippet : "")
+            ).join("\n\n");
+        }
+      } catch (searchError) {
+        console.error("Brave Search error:", searchError.message);
+        return res.status(502).json({ error: "Não consegui concluir a pesquisa agora. Confira a configuração do provedor e tente novamente." });
+      }
+    }
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
       method: "POST",
       headers: {
@@ -350,9 +398,9 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
       },
       body: JSON.stringify({
         model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
-        input: buildConversationInput(message, history, req.footballContext),
-        system_instruction: modes[mode] + "\n\n" + globalInstruction,
-        tools: (mode === "chat" || mode === "study" || mode === "owner") && wantsWebSearch ? [{ type: "google_search" }] : undefined,
+        input: buildConversationInput(message, history, req.footballContext) + webContext,
+        system_instruction: modes[mode] + "\n\n" + globalInstruction + (wantsWebSearch ? "\n\nAo responder pesquisas, priorize as fontes fornecidas, diferencie fatos atuais de contexto antigo, não invente datas e cite as fontes usando [1], [2] na resposta. Se não houver fontes suficientes, diga isso claramente." : ""),
+        tools: wantsWebSearch && !webSources.length ? [{ type: "google_search" }] : undefined,
         store: false
       }),
       signal: AbortSignal.timeout(60000)
@@ -386,7 +434,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
         }
       }
     }
-    const sources = Array.from(sourceMap.values()).slice(0, 8);
+    const sources = [...webSources, ...Array.from(sourceMap.values())].filter((source, index, all) => all.findIndex(item => item.url === source.url) === index).slice(0, 8);
 
     if (!answer) {
       return res.status(502).json({ error: "A IA não retornou uma resposta válida." });
