@@ -45,6 +45,7 @@ const globalInstruction = [
   "- Comece respondendo ao pedido principal. Use linguagem natural, clara e organizada; evite repetir a pergunta.",
   "- Atenda perguntas de conhecimento geral em várias áreas: ciências, história, geografia, matemática, tecnologia, cultura, educação, natureza, sociedade e outros assuntos seguros.",
   "- Para fatos que podem mudar, use pesquisa atualizada quando disponível. Para conhecimento atemporal, não aplique filtros de notícias recentes.",
+  "- Considere a data atual do sistema. Em perguntas sobre datas futuras, feriados e dias da semana, use o ano atual quando o usuário não informar um ano. Nunca responda com um calendário antigo por engano; se a pergunta mencionar explicitamente um ano passado, responda sobre aquele ano.",
   "- Diferencie fatos confirmados, estimativas e opiniões. Se não souber, diga isso com clareza em vez de inventar.",
   "- Em estatísticas de futebol, como gols, assistências, partidas e títulos de jogadores, consulte fontes atuais antes de responder. Informe a data da consulta, diferencie gols oficiais de amistosos ou categorias de base quando a fonte permitir e explique divergências de contagem. Nunca invente ou estime um total como se fosse confirmado.",
   "- Não invente pesquisas, links, fontes, resultados, datas, preços ou funcionalidades que não foram confirmados.",
@@ -278,24 +279,31 @@ async function searchBraveWeb(query, options = {}) {
 
 function wantsSportsStats(message) {
   const text = String(message || "").trim();
-  const asksForStats = /\\b(quantos?|quantas?)\\s+(gols?|assist[eê]ncias?|partidas?|jogos?|t[ií]tulos?)\\b|\\b(gols?|assist[eê]ncias?|partidas?|jogos?)\\s+(na|de|da|do|em)\\s+(carreira|temporada|ano|liga|clube)|\\b(estat[ií]sticas?|n[uú]meros)\\s+(do|da|de)\\b|\\bmarcou\\s+quantos\\b|\\btotal\\s+de\\s+(gols?|assist[eê]ncias?|jogos?)\\b|\\bartilheiro\\b/i.test(text);
-  const mentionsFootballPersonOrTeam = /\\b(cristiano|ronaldo|messi|neymar|mbapp[eé]|haaland|vin[ií]cius|vini jr|salah|benzema|modri[cć]|jogador|jogadora|atacante|flamengo|palmeiras|corinthians|santos|cruzeiro|vasco|botafogo|fluminense|gr[eê]mio|internacional|bahia|fortaleza|brasil|sele[cç][aã]o)\\b/i.test(text);
+  const asksForStats = /\b(quantos?|quantas?)\s+(gols?|assist[eê]ncias?|partidas?|jogos?|t[ií]tulos?)\b|\b(gols?|assist[eê]ncias?|partidas?|jogos?)\s+(na|de|da|do|em)\s+(carreira|temporada|ano|liga|clube)|\b(estat[ií]sticas?|n[uú]meros)\s+(do|da|de)\b|\bmarcou\s+quantos\b|\btotal\s+de\s+(gols?|assist[eê]ncias?|jogos?)\b|\bartilheiro\b/i.test(text);
+  const mentionsFootballPersonOrTeam = /\b(cristiano|ronaldo|messi|neymar|mbapp[eé]|haaland|vin[ií]cius|vini jr|salah|benzema|modri[cć]|jogador|jogadora|atacante|flamengo|palmeiras|corinthians|santos|cruzeiro|vasco|botafogo|fluminense|gr[eê]mio|internacional|bahia|fortaleza|brasil|sele[cç][aã]o)\b/i.test(text);
   return asksForStats && mentionsFootballPersonOrTeam;
 }
 
+function wantsCalendarResearch(message) {
+  const text = String(message || "").trim();
+  return /\b(natal|ano[- ]novo|p[aá]scoa|carnaval|feriado|dia das m[aã]es|dia dos pais|dia das crian[cç]as|corpus christi|tiradentes|independ[eê]ncia do brasil|proclama[cç][aã]o da rep[uú]blica)\b/i.test(text) ||
+    /\b(que dia|qual dia|em que dia|dia da semana|cai em|vai cair|cair[aá])\b/i.test(text) &&
+    /\b(dezembro|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dia \d{1,2})\b/i.test(text);
+}
 function wantsCurrentResearch(message) {
   const text = String(message || "").trim();
   if (!text || text.length < 3) return false;
 
+  // Datas comemorativas e perguntas sobre dias da semana dependem do ano atual.
+  if (wantsCalendarResearch(text)) return true;
+
   // Pesquisas explícitas, assuntos atuais e perguntas informativas de conhecimento geral.
-  // Perguntas simples de conversa não precisam consumir uma chamada de pesquisa.
   const explicitSearch = /\b(pesquis(a|as|e|em|ar)|pesquise(m)?|pesquisar|procure(m)? na internet|busque(m)? na internet|na internet|na web|fontes|refer[eê]ncias|not[ií]cias|news|atualizad[oa]s?|mais recente(s)?|[uú]ltimas?|hoje|agora|pre[cç]o atual|cota[cç][aã]o|quem ganhou|resultado de hoje|jogos?|partidas?|placar|futebol|classifica[cç][aã]o|tabela|look up|search the web|latest|current news)\b/i.test(text);
 
   const knowledgeQuestion = /^(quem|o que|qual|quais|quando|onde|por que|porque|como|explique|explique-me|me explique|me fala|me fale|fale sobre|conte sobre|resuma|resumo de|defina|qual foi|quem foi|quem foram|o que aconteceu|como funciona|para que serve)\b/i.test(text);
 
   return explicitSearch || knowledgeQuestion;
 }
-
 function demoAnswer(message, mode) {
   const question = message.trim();
   if (/\b(oi|olá|ola|bom dia|boa tarde|boa noite)\b/i.test(question)) {
@@ -435,12 +443,17 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
         const isRecent = /\b(últim[oa]s?|atual|atualizado|notícias|news|nesta semana|este mês|recente)\b/i.test(message);
         const freshness = isBreaking ? "pd" : isRecent ? "pw" : undefined;
         const sportsStatsQuestion = wantsSportsStats(message);
+        const calendarQuestion = wantsCalendarResearch(message);
+        const currentYear = new Date().getFullYear();
+        const hasExplicitYear = /\\b(?:19|20)\\d{2}\\b/.test(message);
         const searchQuery = sportsStatsQuestion
-          ? message + " estatísticas oficiais atualizadas " + new Date().getFullYear()
-          : message;
+          ? message + " estatísticas oficiais atualizadas " + currentYear
+          : calendarQuestion && !hasExplicitYear
+            ? message + " calendário " + currentYear
+            : message;
         webSources = await searchBraveWeb(searchQuery, {
-          freshness: sportsStatsQuestion ? undefined : freshness,
-          count: sportsStatsQuestion ? 10 : 8
+          freshness: sportsStatsQuestion || calendarQuestion ? undefined : freshness,
+          count: sportsStatsQuestion || calendarQuestion ? 10 : 8
         });
         if (webSources.length) {
           webContext = "\n\nRESULTADOS DA PESQUISA NA WEB (use somente o que for relevante; não invente datas):\n" +
