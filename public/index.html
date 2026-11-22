@@ -225,7 +225,8 @@
         .replace(/\*(.+?)\*/g, "<em>$1</em>")
         .replace(/\x60([^\x60]+)\x60/g, "<code>$1</code>");
     };
-    const lines = String(value || "").replace(/\r\n?/g, "\n").split("\n");
+    const cleanedValue = String(value || "").replace(/(?:\s*\[\d+(?:\s*,\s*\d+)*\])+\s*$/g, "").trimEnd();
+    const lines = cleanedValue.replace(/\r\n?/g, "\n").split("\n");
     const out = [];
     let listType = null;
     const closeList = () => { if (listType) { out.push(listType === "ul" ? "</ul>" : "</ol>"); listType = null; } };
