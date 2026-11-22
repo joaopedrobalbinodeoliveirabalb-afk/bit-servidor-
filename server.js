@@ -100,6 +100,15 @@ app.get("/api/owner/status", (req, res) => {
   res.json({ configured: Boolean(process.env.VELETTI_OWNER_PASSWORD), authenticated: isOwner(req) });
 });
 
+app.get("/api/auth/config", (req, res) => {
+  const projectUrl = process.env.SUPABASE_URL;
+  const publishableKey = process.env.SUPABASE_ANON_KEY;
+  if (!projectUrl || !publishableKey) {
+    return res.status(503).json({ error: "O login por e-mail ainda não foi configurado." });
+  }
+  return res.json({ url: projectUrl, publishableKey });
+});
+
 app.get("/health", (req, res) => {
   const geminiKeyPresent = typeof process.env.GEMINI_API_KEY === "string"
     && process.env.GEMINI_API_KEY.trim().length > 0;
