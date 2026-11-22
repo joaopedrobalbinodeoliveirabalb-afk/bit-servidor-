@@ -201,8 +201,8 @@ async function getFootballContext(message, history) {
     const rawResults = await searchBraveWeb(searchQuery);
     const cleaned = rawResults.map((item) => ({
       ...item,
-      title: String(item.title || "").replace(/<[^>]*>/g, "").replace(/\\s+/g, " ").trim(),
-      snippet: String(item.snippet || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/\\s+/g, " ").trim()
+      title: String(item.title || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim(),
+      snippet: String(item.snippet || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/\s+/g, " ").trim()
     })).filter((item) => {
       const text = (item.title + " " + item.snippet).toLowerCase();
       return item.title && !/(publicidade|anúncio|crie seu clube|jogo multiplayer|assine lance|outro patamar|campeão mundial)/i.test(text);
@@ -221,12 +221,12 @@ async function getFootballContext(message, history) {
       return { directAnswer: "Não encontrei fontes atuais e relevantes para confirmar os jogos de " + teamQuery + ". Tente novamente mais tarde." };
     }
     const snippets = results.map((item, index) =>
-      (index + 1) + ". " + item.title + (item.snippet ? "\\n" + item.snippet : "")
-    ).join("\\n\\n");
+      (index + 1) + ". " + item.title + (item.snippet ? "\n" + item.snippet : "")
+    ).join("\n\n");
     const labels = { live: "partidas ao vivo", results: "resultados recentes", next: "próximos jogos" };
     return {
-      directAnswer: "Encontrei estas informações sobre " + labels[intent] + " do " + teamQuery + " (pesquisa em " + today + "):\\n\\n" +
-        snippets + "\\n\\nAs datas e os horários podem mudar. Confira a agenda oficial antes de se programar.",
+      directAnswer: "Encontrei estas informações sobre " + labels[intent] + " do " + teamQuery + " (pesquisa em " + today + "):\n\n" +
+        snippets + "\n\nAs datas e os horários podem mudar. Confira a agenda oficial antes de se programar.",
       sources: results
     };
   } catch (error) {
