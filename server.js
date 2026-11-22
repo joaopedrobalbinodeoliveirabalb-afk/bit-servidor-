@@ -320,7 +320,7 @@ async function callCloudflareFallback(message, history, mode, footballContext, w
     throw new Error("Configuração inválida do provedor de IA reserva.");
   }
 
-  const prompt = modes[mode] + "\n\n" + globalInstruction + "\n\n" +
+  const prompt =
     buildConversationInput(message, history, footballContext) + (webContext || "");
 
   const response = await fetch(
