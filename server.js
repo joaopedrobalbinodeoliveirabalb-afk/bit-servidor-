@@ -17,7 +17,8 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
   origin: process.env.FRONTEND_URL
     ? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
-    : true
+    : true,
+  credentials: true
 }));
 app.use(express.json({ limit: "20kb" }));
 app.use(express.static(path.join(__dirname, "public")));
@@ -82,7 +83,7 @@ app.post("/api/owner/login", (req, res) => {
     return res.status(401).json({ error: "Senha incorreta." });
   }
   const token = makeOwnerToken();
-  res.setHeader("Set-Cookie", "veletti_owner=" + encodeURIComponent(token) + "; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200");
+  res.setHeader("Set-Cookie", "veletti_owner=" + encodeURIComponent(token) + "; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=43200");
   return res.json({ ok: true });
 });
 app.post("/api/owner/logout", (req, res) => {
