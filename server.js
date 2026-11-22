@@ -146,12 +146,11 @@ function getFootballIntent(message, history) {
 async function getFootballContext(message, history) {
   const conversation = Array.isArray(history) ? history.slice(-12) : [];
   const previousText = conversation.map((item) => String(item.content || "")).join(" ");
-  const galoMentioned = /\\bgalo\\b/i.test(message) || /\\bgalo\\b/i.test(previousText);
-  const confirmedGalo = galoMentioned &&
-    /Você está falando do Atlético Mineiro\\?/i.test(previousText) &&
-    isAffirmative(message);
-  if (/\\bgalo\\b/i.test(message) && !confirmedGalo &&
-      !/Você está falando do Atlético Mineiro\\?/i.test(previousText)) {
+  const galoMentioned = /\bgalo\b/i.test(message) || /\bgalo\b/i.test(previousText);
+  const askedAboutGalo = /Você está falando do Atlético Mineiro\?/i.test(previousText);
+  const confirmedGalo = galoMentioned && askedAboutGalo && isAffirmative(message);
+
+  if (/\bgalo\b/i.test(message) && !confirmedGalo && !askedAboutGalo) {
     return { directAnswer: "Você está falando do Atlético Mineiro?" };
   }
 
@@ -159,103 +158,112 @@ async function getFootballContext(message, history) {
     return { directAnswer: "A pesquisa de futebol precisa da variável BRAVE_SEARCH_API_KEY configurada no servidor." };
   }
 
-  const combined = confirmedGalo
-    ? "jogo do Atlético Mineiro"
-    : [message, ...conversation.filter((item) => item.role === "user").map((item) => item.content)].join(" ");
-  let teamQuery = confirmedGalo ? "Atlético Mineiro" : extractTeamFromText(message) || extractTeamFromText(combined);
+  const intent = getFootballIntent(message, []);
+  let teamQuery = confirmedGalo ? "Atlético Mineiro" : extractTeamFromText(message);
+
+  // Em perguntas curtas de continuação, usa somente a menção mais recente a um clube.
+  if (!teamQuery) {
+    for (let i = conversation.length - 1; i >= 0; i--) {
+      const item = conversation[i];
+      if (item && item.role === "user") {
+        const candidate = extractTeamFromText(String(item.content || ""));
+        if (candidate) {
+          teamQuery = candidate;
+          break;
+        }
+      }
+    }
+  }
   if (!teamQuery) return null;
 
   const aliases = {
     "mengao": "Flamengo", "fla": "Flamengo",
     "timao": "Corinthians", "coringao": "Corinthians",
     "verdao": "Palmeiras", "porco": "Palmeiras",
-    "peixe": "Santos",
-    "raposa": "Cruzeiro",
-    "galo": "Atlético Mineiro",
-    "furacao": "Athletico Paranaense",
-    "cap": "Athletico Paranaense",
-    "coelho": "América Mineiro",
-    "colorado": "Internacional",
-    "inter": "Internacional",
-    "imortal": "Grêmio",
-    "tricolor gaucho": "Grêmio",
-    "flu": "Fluminense",
-    "fogao": "Botafogo",
-    "bota": "Botafogo",
-    "vascao": "Vasco da Gama",
-    "leao do pici": "Fortaleza",
-    "bahêa": "Bahia"
+    "peixe": "Santos", "raposa": "Cruzeiro",
+    "galo": "Atlético Mineiro", "atletico mg": "Atlético Mineiro",
+    "furacao": "Athletico Paranaense", "cap": "Athletico Paranaense",
+    "coelho": "América Mineiro", "colorado": "Internacional",
+    "inter": "Internacional", "imortal": "Grêmio",
+    "tricolor gaucho": "Grêmio", "flu": "Fluminense",
+    "fogao": "Botafogo", "bota": "Botafogo",
+    "vascao": "Vasco da Gama", "leao do pici": "Fortaleza",
+    "bahea": "Bahia"
   };
-  const normalizedQuery = normalizeTeamName(teamQuery);
-  teamQuery = aliases[normalizedQuery] || teamQuery;
-  const intent = getFootballIntent(message, history);
+  teamQuery = aliases[normalizeTeamName(teamQuery)] || teamQuery;
+  const intentLabel = { live: "placar ao vivo", results: "últimos resultados", next: "próximos jogos" };
   const year = new Date().getFullYear();
   const today = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-  const searchQuery = intent === "live"
-    ? teamQuery + " jogo ao vivo placar futebol hoje " + year
-    : intent === "results"
-      ? teamQuery + " últimos resultados jogos futebol " + year
-      : teamQuery + " próximos jogos calendário partidas " + year + " site:ge.globo.com OR site:lance.com.br OR site:espn.com.br";
+  const freshness = intent === "live" ? "pd" : intent === "results" ? "pw" : "pm";
+  const searchQuery = '"' + teamQuery + '" futebol ' + intentLabel[intent] +
+    ' calendário partidas ' + year;
 
   try {
-    const rawResults = await searchBraveWeb(searchQuery);
+    const rawResults = await searchBraveWeb(searchQuery, { freshness, count: 10 });
+    const teamNormalized = normalizeTeamName(teamQuery);
+    const teamTerms = teamNormalized === "atletico mineiro"
+      ? ["atletico mineiro", "atletico mg", "atletico-mg"]
+      : [teamNormalized];
+
     const cleaned = rawResults.map((item) => ({
       ...item,
       title: String(item.title || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim(),
       snippet: String(item.snippet || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/\s+/g, " ").trim()
     })).filter((item) => {
-      const text = (item.title + " " + item.snippet).toLowerCase();
-      return item.title && !/(publicidade|anúncio|crie seu clube|jogo multiplayer|assine lance|outro patamar|campeão mundial)/i.test(text);
-    });
-    const preferredDomains = ["ge.globo.com", "lance.com.br", "espn.com.br"];
-    const results = cleaned.sort((a, b) => {
-      const score = (item) => {
-        let value = preferredDomains.some((domain) => item.url.includes(domain)) ? 4 : 0;
-        if (/(próximos jogos|proximos jogos|agenda de jogos|calendário|calendario)/i.test(item.title)) value += 3;
-        if (new RegExp(teamQuery.replace(/[.*+?^${}()|[\\]\\]/g, "\\\\if (/(flamengo|jogos)/i.test(item.title + " " + item.snippet)) value += 2;"), "i").test(item.title + " " + item.snippet)) value += 5;
-        return value;
-      };
-      return score(b) - score(a);
-    }).slice(0, 4);
-    if (!results.length) {
-      return { directAnswer: "Não encontrei fontes atuais e relevantes para confirmar os jogos de " + teamQuery + ". Tente novamente mais tarde." };
+      const searchable = normalizeTeamName(item.title + " " + item.snippet);
+      const mentionsRequestedTeam = teamTerms.some((term) => searchable.includes(term));
+      const looksLikeOtherClub = /\b(flamengo|cruzeiro|corinthians|palmeiras|santos|vasco|botafogo|fluminense|gremio|internacional|bahia|fortaleza)\b/i
+        .test(searchable) && !mentionsRequestedTeam;
+      return item.title && mentionsRequestedTeam && !looksLikeOtherClub &&
+        !/(publicidade|anúncio|crie seu clube|jogo multiplayer|assine lance)/i.test(searchable);
+    }).slice(0, 5);
+
+    if (!cleaned.length) {
+      return { directAnswer: "Não encontrei fontes recentes que confirmem " + intentLabel[intent] +
+        " do " + teamQuery + ". Prefiro não mostrar informações de outro clube nem dados antigos como se fossem atuais." };
     }
-    const snippets = results.map((item, index) =>
-      (index + 1) + ". " + item.title + (item.snippet ? "\n" + item.snippet : "")
+
+    const snippets = cleaned.map((item, index) =>
+      (index + 1) + ". " + item.title +
+      (item.published ? " (" + item.published + ")" : "") +
+      (item.snippet ? "\n" + item.snippet : "") +
+      "\nFonte: " + item.url
     ).join("\n\n");
-    const labels = { live: "partidas ao vivo", results: "resultados recentes", next: "próximos jogos" };
+
     return {
-      directAnswer: "Encontrei estas informações sobre " + labels[intent] + " do " + teamQuery + " (pesquisa em " + today + "):\n\n" +
-        snippets + "\n\nAs datas e os horários podem mudar. Confira a agenda oficial antes de se programar.",
-      sources: results
+      directAnswer: "Pesquisa sobre " + intentLabel[intent] + " do " + teamQuery +
+        " (consulta em " + today + "):\n\n" + snippets +
+        "\n\nConfira a fonte antes de se programar: horários e partidas podem mudar.",
+      sources: cleaned
     };
   } catch (error) {
     console.error("Football web search error:", error.message);
-    return { directAnswer: "Não consegui pesquisar os jogos agora. Confira a conexão de pesquisa e tente novamente." };
+    return { directAnswer: "Não consegui confirmar informações recentes sobre " + teamQuery + " agora. Tente novamente mais tarde." };
   }
 }
 
-
-async function searchBraveWeb(query) {
+async function searchBraveWeb(query, options = {}) {
   const key = process.env.BRAVE_SEARCH_API_KEY;
   if (!key) return [];
   const url = new URL("https://api.search.brave.com/res/v1/web/search");
   url.searchParams.set("q", query.slice(0, 400));
-  url.searchParams.set("count", "6");
+  url.searchParams.set("count", String(Math.min(Math.max(Number(options.count) || 6, 1), 10)));
   url.searchParams.set("country", "BR");
   url.searchParams.set("search_lang", "pt-br");
+  if (["pd", "pw", "pm"].includes(options.freshness)) {
+    url.searchParams.set("freshness", options.freshness);
+  }
   const response = await fetch(url, {
     headers: { "Accept": "application/json", "X-Subscription-Token": key },
     signal: AbortSignal.timeout(15000)
   });
   if (!response.ok) {
-    // Registra somente o status e a mensagem pública do provedor; nunca registra a chave.
     const detail = (await response.text()).slice(0, 500);
     console.error("Brave Search HTTP " + response.status + ":", detail);
     throw new Error("Brave Search respondeu com HTTP " + response.status + ".");
   }
   const data = await response.json();
-  return (data.web?.results || []).slice(0, 6).filter(item =>
+  return (data.web?.results || []).filter(item =>
     item && typeof item.url === "string" && /^https?:\/\//i.test(item.url)
   ).map(item => ({
     title: String(item.title || "Fonte consultada").slice(0, 180),
@@ -401,7 +409,8 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     // Pesquisa externa opcional; a chave fica somente nas variáveis do servidor.
     if (wantsWebSearch && process.env.BRAVE_SEARCH_API_KEY) {
       try {
-        webSources = await searchBraveWeb(message);
+        const freshness = /\b(hoje|agora|ao vivo|últimas horas)\b/i.test(message) ? "pd" : "pw";
+        webSources = await searchBraveWeb(message, { freshness, count: 8 });
         if (webSources.length) {
           webContext = "\n\nRESULTADOS DA PESQUISA NA WEB (use somente o que for relevante; não invente datas):\n" +
             webSources.map((source, index) =>
