@@ -195,21 +195,39 @@ async function getFootballContext(message, history) {
     ? teamQuery + " jogo ao vivo placar futebol hoje " + year
     : intent === "results"
       ? teamQuery + " últimos resultados jogos futebol " + year
-      : teamQuery + " próximos jogos calendário partidas " + year;
+      : teamQuery + " próximos jogos calendário partidas " + year + " site:ge.globo.com OR site:lance.com.br OR site:espn.com.br";
 
   try {
-    const results = await searchBraveWeb(searchQuery);
+    const rawResults = await searchBraveWeb(searchQuery);
+    const cleaned = rawResults.map((item) => ({
+      ...item,
+      title: String(item.title || "").replace(/<[^>]*>/g, "").replace(/\\s+/g, " ").trim(),
+      snippet: String(item.snippet || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/\\s+/g, " ").trim()
+    })).filter((item) => {
+      const text = (item.title + " " + item.snippet).toLowerCase();
+      return item.title && !/(publicidade|anúncio|crie seu clube|jogo multiplayer|assine lance|outro patamar|campeão mundial)/i.test(text);
+    });
+    const preferredDomains = ["ge.globo.com", "lance.com.br", "espn.com.br", "flamengo.com.br"];
+    const results = cleaned.sort((a, b) => {
+      const score = (item) => {
+        let value = preferredDomains.some((domain) => item.url.includes(domain)) ? 4 : 0;
+        if (/(próximos jogos|proximos jogos|agenda de jogos|calendário|calendario)/i.test(item.title)) value += 3;
+        if (/(flamengo|jogos)/i.test(item.title + " " + item.snippet)) value += 2;
+        return value;
+      };
+      return score(b) - score(a);
+    }).slice(0, 4);
     if (!results.length) {
-      return { directAnswer: "Não encontrei fontes atuais suficientes para confirmar os jogos de " + teamQuery + ". Tente novamente mais tarde." };
+      return { directAnswer: "Não encontrei fontes atuais e relevantes para confirmar os jogos de " + teamQuery + ". Tente novamente mais tarde." };
     }
-    const snippets = results.slice(0, 5).map((item, index) =>
+    const snippets = results.map((item, index) =>
       (index + 1) + ". " + item.title + (item.snippet ? "\\n" + item.snippet : "")
     ).join("\\n\\n");
     const labels = { live: "partidas ao vivo", results: "resultados recentes", next: "próximos jogos" };
     return {
-      directAnswer: "Pesquisa sobre " + labels[intent] + " de " + teamQuery + " (consulta em " + today + "):\\n\\n" +
-        snippets + "\\n\\nConfira as fontes consultadas antes de considerar datas e horários como confirmados.",
-      sources: results.slice(0, 5)
+      directAnswer: "Encontrei estas informações sobre " + labels[intent] + " do " + teamQuery + " (pesquisa em " + today + "):\\n\\n" +
+        snippets + "\\n\\nAs datas e os horários podem mudar. Confira a agenda oficial antes de se programar.",
+      sources: results
     };
   } catch (error) {
     console.error("Football web search error:", error.message);
