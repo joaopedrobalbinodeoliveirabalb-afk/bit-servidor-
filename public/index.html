@@ -19,7 +19,7 @@
     .owner-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
   </style>
   <meta name="google-site-verification" content="gGB8GHEj_30rkS7Jt66-genru9jYjEZbGaY4iUoUqwA" />
-  <link rel="canonical" href="https://bit-servidor.onrender.com/" />
+  <link rel="canonical" href="https://veletti-web.onrender.com/" />
 </head>
 <body>
 <div class="app">
@@ -125,6 +125,12 @@
   </main>
 </div>
 <script>
+  const API_BASE = "https://bit-servidor.onrender.com";
+  const apiFetch = (path, options = {}) => fetch(API_BASE + path, {
+    ...options,
+    credentials: "include"
+  });
+
   const titles = {home:"Seu espaço começa aqui.",chat:"Converse com o Veletti.",study:"Aprender fica mais simples.",organize:"Organize suas ideias.",finance:"Cuide dos seus planos.",owner:"Área exclusiva do proprietário."};
   const views = ["home","chat","study","organize","finance","owner"];
   const readStore = (key) => { try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch { return []; } };
@@ -147,7 +153,7 @@
     const statusDot=document.getElementById("statusDot");
     const notice=document.getElementById("chatNotice");
     try {
-      const response=await fetch("/health",{headers:{"Accept":"application/json"}});
+      const response=await apiFetch("/health",{headers:{"Accept":"application/json"}});
       if(!response.ok) throw new Error("health check failed");
       const data=await response.json();
       statusText.textContent=data.geminiConfigured?"Servidor online · Gemini configurada":"Servidor online · IA pendente";
@@ -166,7 +172,7 @@
   checkServiceStatus();
   async function checkOwnerStatus(){
     try {
-      const response=await fetch("/api/owner/status");
+      const response=await apiFetch("/api/owner/status");
       const data=await response.json();
       document.getElementById("ownerLoginNotice").textContent=!data.configured
         ?"Configure VELETTI_OWNER_PASSWORD no Render para ativar o acesso."
@@ -184,14 +190,14 @@
     const input=document.getElementById("ownerPassword");
     const notice=document.getElementById("ownerLoginNotice");
     try{
-      const response=await fetch("/api/owner/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:input.value})});
+      const response=await apiFetch("/api/owner/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:input.value})});
       const data=await response.json();
       if(!response.ok) throw new Error(data.error||"Não foi possível entrar.");
       input.value="";showOwnerChat(true);notice.textContent=""; 
     }catch(error){notice.textContent=error.message;}
   });
   document.getElementById("ownerLogout").addEventListener("click",async()=>{
-    await fetch("/api/owner/logout",{method:"POST"});showOwnerChat(false);
+    await apiFetch("/api/owner/logout",{method:"POST"});showOwnerChat(false);
   });
   const ownerHistory=[];
   const ownerBox=document.getElementById("ownerChatBox");
@@ -205,7 +211,7 @@
     input.value="";ownerBubble(message,"user");ownerHistory.push({role:"user",content:message});
     const button=document.getElementById("ownerSendButton");button.disabled=true;button.textContent="Pensando…";
     try{
-      const response=await fetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,mode:"owner",history:ownerHistory.slice(-12)})});
+      const response=await apiFetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,mode:"owner",history:ownerHistory.slice(-12)})});
       const data=await response.json();if(!response.ok)throw new Error(data.error||"Não foi possível responder.");
       ownerBubble(data.answer,"bot");ownerHistory.push({role:"assistant",content:data.answer});
     }catch(error){ownerBubble(error.message,"bot");}
@@ -236,7 +242,7 @@
     chatHistory.push({role:"user",content:message});
     const button=document.getElementById("sendButton");button.disabled=true;button.textContent="Enviando…";
     try {
-      const response=await fetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,mode,history:chatHistory.slice(-12)})});
+      const response=await apiFetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,mode,history:chatHistory.slice(-12)})});
       const data=await response.json();
       if(!response.ok) throw new Error(data.error||"Não foi possível responder.");
       addBubble(data.answer,"bot",Array.isArray(data.sources)?data.sources:[]);
