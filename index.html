@@ -60,4 +60,5 @@ function demoReply(message){const q=message.toLowerCase();if(/oi|olá|ola|bom di
 $("chatform").addEventListener("submit",e=>{e.preventDefault();const value=$("chatinput").value.trim();if(!value)return;const add=(who,txt)=>{const bubble=document.createElement("div");bubble.className="bubble "+who;const small=document.createElement("small");small.textContent=who==="user"?"VOCÊ":"VELETTI · DEMONSTRAÇÃO";bubble.append(small,document.createTextNode(txt));$("chatbox").append(bubble)};add("user",value);add("bot",demoReply(value));$("chatinput").value="";$("chatbox").scrollTop=$("chatbox").scrollHeight});
 renderHome();
 </script>
+ <head><meta name="google-site-verification" content="gGB8GHEj_30rkS7Jt66-genru9jYjEZbGaY4iUoUqwA" /></head>
 </body></html>
