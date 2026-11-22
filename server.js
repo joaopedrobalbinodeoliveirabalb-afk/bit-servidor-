@@ -268,7 +268,7 @@ async function searchBraveWeb(query) {
   url.searchParams.set("q", query.slice(0, 400));
   url.searchParams.set("count", "6");
   url.searchParams.set("country", "BR");
-  url.searchParams.set("search_lang", "pt");
+  url.searchParams.set("search_lang", "pt-br");
   const response = await fetch(url, {
     headers: { "Accept": "application/json", "X-Subscription-Token": key },
     signal: AbortSignal.timeout(15000)
