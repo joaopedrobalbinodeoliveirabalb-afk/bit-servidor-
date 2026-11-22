@@ -207,12 +207,12 @@ async function getFootballContext(message, history) {
       const text = (item.title + " " + item.snippet).toLowerCase();
       return item.title && !/(publicidade|anúncio|crie seu clube|jogo multiplayer|assine lance|outro patamar|campeão mundial)/i.test(text);
     });
-    const preferredDomains = ["ge.globo.com", "lance.com.br", "espn.com.br", "flamengo.com.br"];
+    const preferredDomains = ["ge.globo.com", "lance.com.br", "espn.com.br"];
     const results = cleaned.sort((a, b) => {
       const score = (item) => {
         let value = preferredDomains.some((domain) => item.url.includes(domain)) ? 4 : 0;
         if (/(próximos jogos|proximos jogos|agenda de jogos|calendário|calendario)/i.test(item.title)) value += 3;
-        if (/(flamengo|jogos)/i.test(item.title + " " + item.snippet)) value += 2;
+        if (new RegExp(teamQuery.replace(/[.*+?^${}()|[\\]\\]/g, "\\\\if (/(flamengo|jogos)/i.test(item.title + " " + item.snippet)) value += 2;"), "i").test(item.title + " " + item.snippet)) value += 5;
         return value;
       };
       return score(b) - score(a);
