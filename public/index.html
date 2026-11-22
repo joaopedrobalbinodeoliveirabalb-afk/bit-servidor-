@@ -17,6 +17,53 @@
     .owner-form{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}.owner-form input{flex:1;min-width:180px;background:#091426;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:12px}
     .owner-chat{display:none}.owner-chat.active{display:block}.owner-tag{display:inline-block;color:#071321;background:linear-gradient(90deg,var(--cyan),#8fbaff);font-weight:900;font-size:10px;letter-spacing:1px;padding:5px 9px;border-radius:20px}
     .owner-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+  
+    /* VELETTI FUTURISTA — camada visual da atualização */
+    :root{color-scheme:dark;--blue:#5b9cff;--cyan:#55e6f0;--glow:rgba(69,213,232,.18)}
+    html{scroll-behavior:smooth;scrollbar-color:#29496f #080d1b}
+    body{background:radial-gradient(ellipse at 12% 8%,rgba(37,103,181,.17),transparent 30%),radial-gradient(ellipse at 88% 18%,rgba(42,194,218,.10),transparent 28%),#070b16}
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background-image:linear-gradient(rgba(105,157,220,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(105,157,220,.035) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,black,transparent 82%)}
+    .sidebar{background:rgba(7,14,28,.88);backdrop-filter:blur(18px);border-right-color:rgba(88,145,205,.18)}
+    .brand-mark{border-radius:14px;background:linear-gradient(145deg,#68aaff,#48e0eb);box-shadow:0 0 28px rgba(69,160,255,.3),inset 0 1px 0 rgba(255,255,255,.45)}
+    .brand strong{letter-spacing:.8px}
+    .nav button{transition:background .2s,border-color .2s,transform .2s,color .2s}
+    .nav button:hover{transform:translateX(3px);background:rgba(47,105,168,.2);border-color:rgba(90,164,239,.28)}
+    .nav button.active{background:linear-gradient(100deg,rgba(52,119,199,.28),rgba(45,198,218,.09));border-color:rgba(86,166,239,.36);box-shadow:inset 3px 0 0 var(--cyan),0 7px 24px rgba(20,88,155,.10)}
+    .main{position:relative}
+    .topbar{padding-bottom:17px;border-bottom:1px solid rgba(89,137,190,.13)}
+    .status{backdrop-filter:blur(12px);border-color:rgba(91,151,213,.22);box-shadow:0 8px 30px rgba(0,0,0,.12)}
+    .welcome{isolation:isolate;border-color:rgba(91,165,239,.34);background:radial-gradient(circle at 88% 45%,rgba(69,213,232,.18),transparent 27%),linear-gradient(115deg,rgba(24,57,99,.98),rgba(13,27,49,.98) 62%,rgba(13,48,67,.98));box-shadow:0 22px 70px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.06)}
+    .welcome:before{content:"";position:absolute;width:260px;height:260px;right:6%;top:50%;transform:translateY(-50%);border:1px solid rgba(92,207,239,.16);border-radius:50%;box-shadow:0 0 0 28px rgba(92,207,239,.025),0 0 0 58px rgba(92,207,239,.018);pointer-events:none}
+    .welcome-mark{position:relative;z-index:1;color:#8defff;text-shadow:0 0 18px rgba(69,213,232,.7),0 0 48px rgba(75,145,255,.6);animation:velettiFloat 5s ease-in-out infinite}
+    @keyframes velettiFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    .feature,.panel,.stat,.owner-card{box-shadow:0 12px 34px rgba(0,0,0,.12);backdrop-filter:blur(10px)}
+    .feature{background:linear-gradient(145deg,rgba(20,37,62,.94),rgba(10,20,36,.96));border-color:rgba(88,137,190,.2)}
+    .feature:hover{transform:translateY(-5px);border-color:rgba(82,190,231,.55);box-shadow:0 18px 38px rgba(0,0,0,.24),0 0 24px rgba(53,147,221,.10)}
+    .feature-icon{background:linear-gradient(145deg,rgba(49,105,171,.42),rgba(42,184,205,.16));border:1px solid rgba(91,177,230,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+    .panel{background:linear-gradient(145deg,rgba(17,30,51,.96),rgba(10,19,34,.98));border-color:rgba(88,137,190,.2)}
+    .primary{background:linear-gradient(110deg,#5598ff,#3c79df 58%,#28b9d0);box-shadow:0 8px 22px rgba(55,130,224,.2);transition:transform .18s,filter .18s,box-shadow .18s}
+    .primary:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.08);box-shadow:0 11px 27px rgba(55,130,224,.3)}
+    .secondary,.suggestions button{transition:border-color .18s,background .18s,transform .18s}
+    .secondary:hover,.suggestions button:hover{border-color:rgba(83,193,225,.55);background:#1b3859;transform:translateY(-1px)}
+    input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+    .chat-box{scrollbar-width:thin;scrollbar-color:#345b83 transparent}
+    .bubble.bot{background:linear-gradient(135deg,#192f4c,#14243b);border-color:rgba(83,144,202,.28)}
+    .bubble.user{background:linear-gradient(120deg,#2863b4,#267caa);box-shadow:0 7px 20px rgba(28,95,172,.16)}
+    .task,.entry{transition:border-color .18s,background .18s}
+    .task:hover,.entry:hover{border-color:rgba(81,171,222,.38)}
+    .owner-tag{box-shadow:0 0 20px rgba(69,213,232,.15)}
+    .footer{letter-spacing:1.4px}
+    @media(max-width:650px){
+      .nav{grid-template-columns:repeat(6,minmax(0,1fr))}
+      .nav button{font-size:9px;min-width:0;padding:8px 1px}
+      .nav .ico{font-size:16px}
+      .welcome:before{right:-100px}
+      .welcome-mark{padding:0 5px}
+      .topbar{align-items:flex-start}
+      .topbar h1{max-width:240px}
+    }
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
   </style>
 </head>
 <body>
