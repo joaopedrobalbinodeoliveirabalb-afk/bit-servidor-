@@ -102,7 +102,7 @@ app.get("/api/owner/status", (req, res) => {
 
 app.get("/api/auth/config", (req, res) => {
   const projectUrl = process.env.SUPABASE_URL;
-  const publishableKey = process.env.SUPABASE_ANON_KEY;
+  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
   if (!projectUrl || !publishableKey) {
     return res.status(503).json({ error: "O login por e-mail ainda não foi configurado." });
   }
