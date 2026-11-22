@@ -22,6 +22,31 @@ app.use(cors({
 app.use(express.json({ limit: "20kb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
+
+const serviceMetrics = {
+  startedAt: Date.now(),
+  assistantRequests: 0,
+  errors: 0,
+  providers: { gemini: 0, cloudflare: 0, football: 0, demo: 0 }
+};
+app.use((req, res, next) => {
+  if (req.path !== "/api/assistant" || req.method !== "POST") return next();
+  serviceMetrics.assistantRequests += 1;
+  const originalJson = res.json.bind(res);
+  res.json = (payload) => {
+    if (payload && payload.provider && Object.prototype.hasOwnProperty.call(serviceMetrics.providers, payload.provider)) {
+      serviceMetrics.providers[payload.provider] += 1;
+    } else if (payload && payload.demo) {
+      serviceMetrics.providers.demo += 1;
+    }
+    return originalJson(payload);
+  };
+  res.on("finish", () => {
+    if (res.statusCode >= 400 && res.statusCode !== 429) serviceMetrics.errors += 1;
+  });
+  next();
+});
+
 const assistantLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
@@ -93,13 +118,37 @@ app.get("/api/owner/status", (req, res) => {
   res.json({ configured: Boolean(process.env.VELETTI_OWNER_PASSWORD), authenticated: isOwner(req) });
 });
 
+app.get("/api/owner/metrics", (req, res) => {
+  if (!isOwner(req)) return res.status(403).json({ error: "Entre no Modo Dono para consultar as estatísticas." });
+  res.set("Cache-Control", "no-store");
+  return res.json({
+    uptimeSeconds: Math.floor(process.uptime()),
+    assistantRequests: serviceMetrics.assistantRequests,
+    errors: serviceMetrics.errors,
+    providers: { ...serviceMetrics.providers },
+    configured: {
+      gemini: Boolean(process.env.GEMINI_API_KEY),
+      cloudflare: Boolean(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN),
+      webSearch: Boolean(process.env.BRAVE_SEARCH_API_KEY),
+      football: Boolean(process.env.FOOTBALL_API_KEY)
+    }
+  });
+});
+
 app.get("/health", (req, res) => {
   const geminiKeyPresent = typeof process.env.GEMINI_API_KEY === "string"
     && process.env.GEMINI_API_KEY.trim().length > 0;
   res.json({
     status: "ok",
     geminiConfigured: geminiKeyPresent,
-    geminiKeyPresent
+    geminiKeyPresent,
+    providers: {
+      gemini: geminiKeyPresent,
+      cloudflare: Boolean(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN),
+      webSearch: Boolean(process.env.BRAVE_SEARCH_API_KEY),
+      football: Boolean(process.env.FOOTBALL_API_KEY)
+    },
+    uptimeSeconds: Math.floor(process.uptime())
   });
 });
 
@@ -395,7 +444,13 @@ function buildConversationInput(message, history, footballContext) {
 }
 
 app.post("/api/assistant", assistantLimit, async (req, res) => {
-  const { message, mode = "chat", history = [] } = req.body || {};
+  const { message, mode = "chat" } = req.body || {};
+  const history = Array.isArray(req.body?.history)
+    ? req.body.history.slice(-12).filter((item) =>
+        item && (item.role === "user" || item.role === "assistant") &&
+        typeof item.content === "string" && item.content.trim()
+      ).map((item) => ({ role: item.role, content: item.content.trim().slice(0, 3000) }))
+    : [];
 
   if (typeof message !== "string" || !message.trim()) {
     return res.status(400).json({ error: "Escreva uma mensagem para o Veletti." });
