@@ -445,7 +445,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
         const sportsStatsQuestion = wantsSportsStats(message);
         const calendarQuestion = wantsCalendarResearch(message);
         const currentYear = new Date().getFullYear();
-        const hasExplicitYear = /\\b(?:19|20)\\d{2}\\b/.test(message);
+        const hasExplicitYear = /\b(?:19|20)\d{2}\b/.test(message);
         const searchQuery = sportsStatsQuestion
           ? message + " estatísticas oficiais atualizadas " + currentYear
           : calendarQuestion && !hasExplicitYear
