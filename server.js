@@ -39,7 +39,6 @@ app.use((req, res, next) => {
     } else if (payload && payload.demo) {
       serviceMetrics.providers.demo += 1;
     }
-    if (res.statusCode >= 400) serviceMetrics.errors += 1;
     return originalJson(payload);
   };
   res.on("finish", () => {
