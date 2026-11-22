@@ -62,6 +62,11 @@
       .topbar{align-items:flex-start}
       .topbar h1{max-width:240px}
     }
+
+    .chat-toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .owner-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+    @media(max-width:650px){.owner-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.chat-toolbar{display:grid}.chat-toolbar .secondary{justify-self:end}}
+
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
   </style>
@@ -109,14 +114,17 @@
     <section class="view" id="view-chat">
       <div class="view-head"><h2>Assistente Veletti</h2><p>Converse, tire dúvidas e transforme ideias em próximos passos.</p></div>
       <div class="panel chat-layout">
-        <div class="suggestions">
-          <button data-prompt="Me ajude a organizar minha semana.">Organizar minha semana</button>
-          <button data-prompt="Explique um assunto escolar de um jeito simples.">Aprender um assunto</button>
-          <button data-prompt="Me dê ideias para começar um projeto.">Criar um projeto</button>
+        <div class="chat-toolbar">
+          <div class="suggestions">
+            <button data-prompt="Me ajude a organizar minha semana.">Organizar minha semana</button>
+            <button data-prompt="Explique um assunto escolar de um jeito simples.">Aprender um assunto</button>
+            <button data-prompt="Me dê ideias para começar um projeto.">Criar um projeto</button>
+          </div>
+          <button class="secondary" type="button" id="clearChat">Limpar conversa</button>
         </div>
         <div class="chat-box" id="chatBox" aria-live="polite"><div class="bubble bot"><small>VELETTI IA</small>Oi! Eu sou o assistente do Veletti. O que você gostaria de fazer hoje?</div></div>
         <form class="chat-form" id="chatForm"><input id="chatInput" maxlength="4000" placeholder="Escreva sua mensagem..." autocomplete="off" required><button class="primary" id="sendButton">Enviar ↗</button></form>
-        <div class="notice" id="chatNotice">O chat com IA precisa de uma chave de API configurada no servidor. Suas chaves nunca devem ser colocadas neste arquivo ou no navegador.</div>
+        <div class="notice" id="chatNotice">A memória desta conversa fica somente neste navegador. Use “Limpar conversa” para apagar o histórico deste aparelho.</div>
       </div>
     </section>
 
@@ -156,6 +164,16 @@
       </div>
       <div class="owner-chat" id="ownerChat">
         <div class="owner-actions"><span class="owner-tag">MODO DONO ATIVO</span><button class="secondary" id="ownerLogout">Sair</button></div>
+        <div class="panel owner-metrics-panel">
+          <div class="owner-actions"><div><h3 style="margin:0">Painel de operação</h3><p class="notice" style="margin:4px 0 0">Indicadores desta instância do servidor.</p></div><button class="secondary" id="refreshOwnerMetrics" type="button">Atualizar</button></div>
+          <div class="stat-grid owner-stats">
+            <div class="stat"><small>Mensagens processadas</small><strong id="metricRequests">—</strong></div>
+            <div class="stat"><small>Erros registrados</small><strong id="metricErrors">—</strong></div>
+            <div class="stat"><small>Tempo ativo</small><strong id="metricUptime">—</strong></div>
+            <div class="stat"><small>Provedores configurados</small><strong id="metricProviders">—</strong></div>
+          </div>
+          <p class="notice" id="metricProviderDetails">As estatísticas são temporárias e reiniciam quando o servidor reinicia.</p>
+        </div>
         <div class="panel">
           <h3>Assistente avançado do proprietário</h3>
           <p style="color:var(--muted)">Use para planejar melhorias, analisar ideias e trabalhar nos projetos do Veletti.</p>
@@ -194,7 +212,8 @@
       const response=await fetch("/health",{headers:{"Accept":"application/json"}});
       if(!response.ok) throw new Error("health check failed");
       const data=await response.json();
-      statusText.textContent=data.geminiConfigured?"Servidor online · Gemini configurada":"Servidor online · IA pendente";
+      const activeProviders = data.providers ? Object.values(data.providers).filter(Boolean).length : (data.geminiConfigured ? 1 : 0);
+      statusText.textContent = activeProviders ? "Servidor online · " + activeProviders + " integrações" : "Servidor online · IA pendente";
       statusDot.style.background="#4ed6a0";
       statusDot.style.boxShadow="0 0 12px #4ed6a088";
       notice.textContent=data.geminiConfigured
@@ -222,6 +241,11 @@
     document.getElementById("ownerLoginCard").style.display=active?"none":"block";
     document.getElementById("ownerChat").classList.toggle("active",active);
   }
+  const originalShowOwnerChat = showOwnerChat;
+  showOwnerChat = function(active) {
+    originalShowOwnerChat(active);
+    if (active) refreshOwnerMetrics();
+  };
   checkOwnerStatus();
   document.getElementById("ownerLoginForm").addEventListener("submit",async e=>{
     e.preventDefault();
@@ -234,7 +258,33 @@
       input.value="";showOwnerChat(true);notice.textContent=""; 
     }catch(error){notice.textContent=error.message;}
   });
-  document.getElementById("ownerLogout").addEventListener("click",async()=>{
+
+  async function refreshOwnerMetrics() {
+    const button = document.getElementById("refreshOwnerMetrics");
+    if (button) { button.disabled = true; button.textContent = "Carregando…"; }
+    try {
+      const response = await fetch("/api/owner/metrics", { headers: { "Accept": "application/json" }, cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Não foi possível carregar as estatísticas.");
+      document.getElementById("metricRequests").textContent = data.assistantRequests ?? 0;
+      document.getElementById("metricErrors").textContent = data.errors ?? 0;
+      const minutes = Math.floor((data.uptimeSeconds || 0) / 60);
+      document.getElementById("metricUptime").textContent = minutes < 60 ? minutes + " min" : Math.floor(minutes / 60) + " h " + (minutes % 60) + " min";
+      const providers = data.configured || {};
+      const active = Object.entries(providers).filter(([, enabled]) => enabled).map(([name]) => name);
+      document.getElementById("metricProviders").textContent = active.length + "/4";
+      document.getElementById("metricProviderDetails").textContent = active.length
+        ? "Integrações configuradas: " + active.join(", ") + ". Os números são desta instância e reiniciam com o servidor."
+        : "Nenhuma integração externa está configurada. Os números são desta instância e reiniciam com o servidor.";
+    } catch (error) {
+      document.getElementById("metricProviderDetails").textContent = error.message;
+    } finally {
+      if (button) { button.disabled = false; button.textContent = "Atualizar"; }
+    }
+  }
+  document.getElementById("refreshOwnerMetrics").addEventListener("click", refreshOwnerMetrics);
+
+    document.getElementById("ownerLogout").addEventListener("click",async()=>{
     await fetch("/api/owner/logout",{method:"POST"});showOwnerChat(false);
   });
   const ownerHistory=[];
@@ -256,7 +306,21 @@
     finally{button.disabled=false;button.textContent="Enviar ↗";}
   });
 
-  const chatHistory = [];
+  const CHAT_STORAGE_KEY = "veletti_chat_history_v1";
+  function loadChatHistory() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || "[]");
+      return Array.isArray(saved) ? saved.filter(item =>
+        item && (item.role === "user" || item.role === "assistant") &&
+        typeof item.content === "string"
+      ).slice(-30) : [];
+    } catch { return []; }
+  }
+  const chatHistory = loadChatHistory();
+  function saveChatHistory() {
+    try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatHistory.slice(-30))); }
+    catch { document.getElementById("chatNotice").textContent = "O navegador não permitiu salvar o histórico. A conversa continua funcionando enquanto esta página estiver aberta."; }
+  }
   const chatBox = document.getElementById("chatBox");
   function addBubble(text,who,sources=[]) {
     const el=document.createElement("div");el.className="bubble "+who;
@@ -274,10 +338,28 @@
     }
     chatBox.appendChild(el);chatBox.scrollTop=chatBox.scrollHeight;
   }
+  function restoreChatHistory() {
+    if (!chatHistory.length) return;
+    chatBox.replaceChildren();
+    chatHistory.forEach(turn => addBubble(turn.content, turn.role === "user" ? "user" : "bot"));
+  }
+  restoreChatHistory();
+  document.getElementById("clearChat").addEventListener("click", () => {
+    if (!confirm("Apagar o histórico desta conversa deste navegador?")) return;
+    chatHistory.length = 0;
+    localStorage.removeItem(CHAT_STORAGE_KEY);
+    chatBox.replaceChildren();
+    const welcome = document.createElement("div");
+    welcome.className = "bubble bot";
+    const label = document.createElement("small"); label.textContent = "VELETTI IA";
+    welcome.append(label, document.createTextNode("Conversa limpa. Podemos começar de novo!"));
+    chatBox.append(welcome);
+  });
   async function sendChat(message,mode="chat") {
     if(!message.trim()) return;
     addBubble(message,"user");
     chatHistory.push({role:"user",content:message});
+    saveChatHistory();
     const button=document.getElementById("sendButton");button.disabled=true;button.textContent="Enviando…";
     try {
       const response=await fetch("/api/assistant",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,mode,history:chatHistory.slice(-12)})});
@@ -285,6 +367,7 @@
       if(!response.ok) throw new Error(data.error||"Não foi possível responder.");
       addBubble(data.answer,"bot",Array.isArray(data.sources)?data.sources:[]);
       chatHistory.push({role:"assistant",content:data.answer});
+      saveChatHistory();
       document.getElementById("chatNotice").textContent=data.demo?"Modo demonstração gratuito: resposta pré-programada, sem consumo de créditos.":(data.sources&&data.sources.length?"Pesquisa na internet utilizada · fontes listadas na resposta.":"Resposta gerada pelo assistente.");
     } catch(error) {
       addBubble(error.message+" Você ainda pode usar as áreas de tarefas e finanças enquanto a IA é configurada.","bot");
