@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://bit-servidor.onrender.com/sitemap.xml
+Sitemap: https://veletti-web.onrender.com/sitemap.xml
