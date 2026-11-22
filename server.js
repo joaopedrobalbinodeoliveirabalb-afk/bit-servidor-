@@ -281,11 +281,16 @@ async function searchBraveWeb(query, options = {}) {
 
 function wantsSportsStats(message) {
   const text = String(message || "").trim();
-  const asksForStats = /\b(quantos?|quantas?)\s+(gols?|assist[eê]ncias?|partidas?|jogos?|t[ií]tulos?)\b|\b(gols?|assist[eê]ncias?|partidas?|jogos?)\s+(na|de|da|do|em)\s+(carreira|temporada|ano|liga|clube)|\b(estat[ií]sticas?|n[uú]meros)\s+(do|da|de)\b|\bmarcou\s+quantos\b|\btotal\s+de\s+(gols?|assist[eê]ncias?|jogos?)\b|\bartilheiro\b/i.test(text);
-  const mentionsFootballPersonOrTeam = /\b(cristiano|ronaldo|messi|neymar|mbapp[eé]|haaland|vin[ií]cius|vini jr|salah|benzema|modri[cć]|jogador|jogadora|atacante|flamengo|palmeiras|corinthians|santos|cruzeiro|vasco|botafogo|fluminense|gr[eê]mio|internacional|bahia|fortaleza|brasil|sele[cç][aã]o)\b/i.test(text);
-  return asksForStats && mentionsFootballPersonOrTeam;
+  const asksForStats = /\b(quantos?|quantas?)\s+(gols?|assist[eê]ncias?|partidas?|jogos?|t[ií]tulos?)\b|\b(gols?|assist[eê]ncias?|partidas?|jogos?)\s+(na|de|da|do|em)\s+(carreira|temporada|ano|liga|clube|copa|competi[cç][aã]o)\b|\b(estat[ií]sticas?|n[uú]meros)\s+(do|da|de)\b|\bmarcou\s+quantos\b|\btotal\s+de\s+(gols?|assist[eê]ncias?|jogos?)\b|\b(gols?|assist[eê]ncias?)\b.{0,35}\b(tem|fez|marcou|anotou|conseguiu)\b/i.test(text);
+  const mentionsFootballPersonOrTeam = /\b(cristiano|ronaldo|messi|neymar|mbapp[eé]|haaland|vin[ií]cius|vini jr|salah|benzema|modri[cć]|jogador|jogadora|atacante|atleta|flamengo|palmeiras|corinthians|santos|cruzeiro|vasco|botafogo|fluminense|gr[eê]mio|internacional|bahia|fortaleza|brasil|sele[cç][aã]o)\b/i.test(text);
+  const mentionsFootballCompetition = /\b(futebol|copa(s)? do mundo|mundial|libertadores|champions league|brasileir[aã]o|premier league|la liga|serie a|liga dos campe[oõ]es)\b/i.test(text);
+  const asksHistoricalTopScorer = /\b(artilheiro|goleador|recorde de gols|maior goleador|maior artilheiro)\b/i.test(text) &&
+    /\b(hist[oó]ria|hist[oó]rico|copa(s)? do mundo|mundial|futebol|liga|campeonato)\b/i.test(text);
+  // Perguntas gerais como "quantos gols tem?" também precisam pesquisar,
+  // mesmo quando o nome do atleta não está na lista de nomes conhecidos.
+  return asksHistoricalTopScorer ||
+    (asksForStats && (mentionsFootballPersonOrTeam || mentionsFootballCompetition || /\bquantos?\s+gols?\b/i.test(text)));
 }
-
 function wantsCalendarResearch(message) {
   const text = String(message || "").trim();
   return /\b(natal|ano[- ]novo|p[aá]scoa|carnaval|feriado|dia das m[aã]es|dia dos pais|dia das crian[cç]as|corpus christi|tiradentes|independ[eê]ncia do brasil|proclama[cç][aã]o da rep[uú]blica)\b/i.test(text) ||
