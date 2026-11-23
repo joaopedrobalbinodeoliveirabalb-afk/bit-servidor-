@@ -50,6 +50,7 @@ async function startApi(scenario) {
       if (response.ok) {
         return {
           baseUrl,
+          getStderr: () => stderr,
           stop: () => new Promise((resolve) => {
             child.once("exit", resolve);
             child.kill("SIGTERM");
@@ -74,7 +75,7 @@ async function ask(scenario) {
       body: JSON.stringify({ message: "Explique o que é uma API.", mode: "chat" })
     });
     const data = await response.json();
-    return { status: response.status, data };
+    return { status: response.status, data, stderr: api.getStderr() };
   } finally {
     await api.stop();
   }
@@ -82,7 +83,7 @@ async function ask(scenario) {
 
 test("usa OpenAI quando Gemini retorna erro HTTP", async () => {
   const result = await ask("gemini-error-openai-ok");
-  assert.equal(result.status, 200);
+  assert.equal(result.status, 200, "Resposta da API: " + JSON.stringify(result.data) + "\\nLog do servidor: " + result.stderr);
   assert.equal(result.data.provider, "openai");
   assert.match(result.data.answer, /OpenAI/);
 });
