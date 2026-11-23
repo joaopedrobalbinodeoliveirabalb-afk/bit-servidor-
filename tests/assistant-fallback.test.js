@@ -72,7 +72,7 @@ async function ask(scenario) {
     const response = await fetch(api.baseUrl + "/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "Explique o que é uma API.", mode: "chat" })
+      body: JSON.stringify({ message: "Diga uma frase curta de boas-vindas.", mode: "chat" })
     });
     const data = await response.json();
     return { status: response.status, data, stderr: api.getStderr() };
