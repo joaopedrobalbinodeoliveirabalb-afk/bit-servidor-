@@ -306,9 +306,18 @@ function wantsCalendarResearch(message) {
     /\b(que dia|qual dia|em que dia|dia da semana|cai em|vai cair|cair[aá])\b/i.test(text) &&
     /\b(dezembro|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dia \d{1,2})\b/i.test(text);
 }
+function wantsReleaseResearch(message) {
+  const text = String(message || "").trim();
+  // Perguntas sobre lançamento, disponibilidade e adiamentos mudam com o tempo.
+  return /\\b(lancamento|lançamento|foi lancado|foi lançado|ja lancou|já lançou|esta lancado|está lançado|quando lanc[aou]|quando lança|data de lancamento|data de lançamento|adiad[oa]|estreou|estreia|disponivel|disponível)\\b/i.test(text) &&
+    /\\b(gta|jogo|game|filme|serie|série|temporada|console|celular|produto|aplicativo|app)\\b/i.test(text);
+}
 function wantsCurrentResearch(message) {
   const text = String(message || "").trim();
   if (!text || text.length < 3) return false;
+
+  // Lançamentos e disponibilidade exigem pesquisa atualizada.
+  if (wantsReleaseResearch(text)) return true;
 
   // Estatísticas de jogadores e equipes sempre exigem pesquisa atualizada.
   if (wantsSportsStats(text)) return true;
@@ -465,14 +474,17 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
         const calendarQuestion = wantsCalendarResearch(message);
         const currentYear = new Date().getFullYear();
         const hasExplicitYear = /\b(?:19|20)\d{2}\b/.test(message);
-        const searchQuery = sportsStatsQuestion
-          ? message + " estatísticas oficiais atualizadas " + currentYear
-          : calendarQuestion && !hasExplicitYear
-            ? message + " calendário " + currentYear
-            : message;
+        const releaseQuestion = wantsReleaseResearch(message);
+        const searchQuery = releaseQuestion
+          ? message + " informação oficial lançamento disponibilidade situação atual " + currentYear
+          : sportsStatsQuestion
+            ? message + " estatísticas oficiais atualizadas " + currentYear
+            : calendarQuestion && !hasExplicitYear
+              ? message + " calendário " + currentYear
+              : message;
         webSources = await searchBraveWeb(searchQuery, {
-          freshness: sportsStatsQuestion || calendarQuestion ? undefined : freshness,
-          count: sportsStatsQuestion || calendarQuestion ? 10 : 8
+          freshness: sportsStatsQuestion || calendarQuestion || releaseQuestion ? undefined : freshness,
+          count: sportsStatsQuestion || calendarQuestion || releaseQuestion ? 10 : 8
         });
         if (webSources.length) {
           webContext = "\n\nRESULTADOS DA PESQUISA NA WEB (use somente o que for relevante; não invente datas):\n" +
