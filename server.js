@@ -113,6 +113,8 @@ app.get("/health", (req, res) => {
   const configured = (name) => typeof process.env[name] === "string" && process.env[name].trim().length > 0;
   res.json({
     status: "ok",
+    geminiConfigured: configured("GEMINI_API_KEY"),
+    geminiKeyPresent: configured("GEMINI_API_KEY"),
     providers: {
       gemini: configured("GEMINI_API_KEY"),
       openai: configured("OPENAI_API_KEY"),
@@ -311,8 +313,8 @@ function wantsCalendarResearch(message) {
 function wantsReleaseResearch(message) {
   const text = String(message || "").trim();
   // Perguntas sobre lançamento, disponibilidade e adiamentos mudam com o tempo.
-  return /\\b(lancamento|lançamento|foi lancado|foi lançado|ja lancou|já lançou|esta lancado|está lançado|quando lanc[aou]|quando lança|data de lancamento|data de lançamento|adiad[oa]|estreou|estreia|disponivel|disponível)\\b/i.test(text) &&
-    /\\b(gta|jogo|game|filme|serie|série|temporada|console|celular|produto|aplicativo|app)\\b/i.test(text);
+  return /\b(lancamento|lançamento|foi lancado|foi lançado|ja lancou|já lançou|esta lancado|está lançado|quando lanc[aou]|quando lança|data de lancamento|data de lançamento|adiad[oa]|estreou|estreia|disponivel|disponível)\b/i.test(text) &&
+    /\b(gta|jogo|game|filme|serie|série|temporada|console|celular|produto|aplicativo|app)\b/i.test(text);
 }
 function wantsCurrentResearch(message) {
   const text = String(message || "").trim();
@@ -556,7 +558,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
         return res.status(502).json({ error: "Não consegui concluir a pesquisa agora. Confira a configuração do provedor e tente novamente." });
       }
     }
-    // Sem chave Gemini, tenta a Cloudflare antes de recorrer à resposta demonstrativa.
+    // Sem chave Gemini, tenta os provedores reserva antes da resposta demonstrativa.
     if (!process.env.GEMINI_API_KEY) {
       const canUseCloudflare = !wantsWebSearch || webSources.length > 0;
       if (canUseCloudflare) {
@@ -572,7 +574,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
             });
           }
         } catch (fallbackError) {
-          console.error("Cloudflare fallback error (Gemini sem chave):", fallbackError.message);
+          console.error("Fallback error (Gemini sem chave):", fallbackError.message);
         }
       }
       if (wantsWebSearch && !webSources.length) {
@@ -617,7 +619,7 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
             });
           }
         } catch (fallbackError) {
-          console.error("Cloudflare fallback error:", fallbackError.message);
+          console.error("Fallback error:", fallbackError.message);
         }
       }
       return res.status(response.status === 429 ? 429 : 502).json({
