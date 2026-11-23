@@ -604,8 +604,9 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     const data = await response.json();
     if (!response.ok) {
       console.error("Gemini API error:", data.error?.message || response.status);
-      const canUseFallback = (response.status === 429 || response.status >= 500) &&
-        (!wantsWebSearch || webSources.length > 0);
+      // Qualquer falha HTTP da IA principal pode acionar as reservas.
+      // Em perguntas que exigem pesquisa, só usamos a reserva se houver fontes.
+      const canUseFallback = !wantsWebSearch || webSources.length > 0;
       if (canUseFallback) {
         try {
           const fallback = await callAnyFallback(
@@ -650,7 +651,20 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     const sources = [...webSources, ...Array.from(sourceMap.values())].filter((source, index, all) => all.findIndex(item => item.url === source.url) === index).slice(0, 8);
 
     if (!answer) {
-      return res.status(502).json({ error: "A IA não retornou uma resposta válida." });
+      const fallbackAllowed = !wantsWebSearch || webSources.length > 0;
+      if (fallbackAllowed) {
+        const fallback = await callAnyFallback(
+          message, history, mode, req.footballContext, webContext
+        );
+        if (fallback) {
+          return res.json({
+            answer: fallback.answer,
+            provider: fallback.provider,
+            sources: webSources
+          });
+        }
+      }
+      return res.status(502).json({ error: "A IA principal não retornou uma resposta válida e as IAs reservas não estão disponíveis." });
     }
 
     return res.json({ answer, provider: "gemini", sources });
