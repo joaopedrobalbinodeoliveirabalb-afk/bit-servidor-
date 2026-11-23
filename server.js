@@ -110,12 +110,16 @@ app.get("/api/auth/config", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  const geminiKeyPresent = typeof process.env.GEMINI_API_KEY === "string"
-    && process.env.GEMINI_API_KEY.trim().length > 0;
+  const configured = (name) => typeof process.env[name] === "string" && process.env[name].trim().length > 0;
   res.json({
     status: "ok",
-    geminiConfigured: geminiKeyPresent,
-    geminiKeyPresent
+    geminiConfigured: configured("GEMINI_API_KEY"),
+    geminiKeyPresent: configured("GEMINI_API_KEY"),
+    providers: {
+      gemini: configured("GEMINI_API_KEY"),
+      openai: configured("OPENAI_API_KEY"),
+      cloudflare: configured("CLOUDFLARE_ACCOUNT_ID") && configured("CLOUDFLARE_API_TOKEN")
+    }
   });
 });
 
@@ -309,8 +313,8 @@ function wantsCalendarResearch(message) {
 function wantsReleaseResearch(message) {
   const text = String(message || "").trim();
   // Perguntas sobre lançamento, disponibilidade e adiamentos mudam com o tempo.
-  return /\\b(lancamento|lançamento|foi lancado|foi lançado|ja lancou|já lançou|esta lancado|está lançado|quando lanc[aou]|quando lança|data de lancamento|data de lançamento|adiad[oa]|estreou|estreia|disponivel|disponível)\\b/i.test(text) &&
-    /\\b(gta|jogo|game|filme|serie|série|temporada|console|celular|produto|aplicativo|app)\\b/i.test(text);
+  return /\b(lancamento|lançamento|foi lancado|foi lançado|ja lancou|já lançou|esta lancado|está lançado|quando lanc[aou]|quando lança|data de lancamento|data de lançamento|adiad[oa]|estreou|estreia|disponivel|disponível)\b/i.test(text) &&
+    /\b(gta|jogo|game|filme|serie|série|temporada|console|celular|produto|aplicativo|app)\b/i.test(text);
 }
 function wantsCurrentResearch(message) {
   const text = String(message || "").trim();
@@ -401,6 +405,61 @@ async function callCloudflareFallback(message, history, mode, footballContext, w
     throw new Error("A IA reserva não retornou uma resposta válida.");
   }
   return answer.trim();
+}
+
+async function callOpenAIFallback(message, history, mode, footballContext, webContext) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const prompt = buildConversationInput(message, history, footballContext) + (webContext || "");
+  const researchInstruction = webContext
+    ? "\n\nAo usar os resultados de pesquisa, responda diretamente, confira se cada fonte realmente trata do assunto perguntado, não misture assuntos ou entidades parecidas e cite as fontes como [1], [2]. Se as fontes forem insuficientes ou divergirem, explique a limitação."
+    : "";
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + apiKey,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: (modes[mode] + "\n\n" + globalInstruction + researchInstruction).slice(0, 12000) },
+        { role: "user", content: prompt.slice(0, 24000) }
+      ],
+      max_completion_tokens: 1200
+    }),
+    signal: AbortSignal.timeout(60000)
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error?.message || "OpenAI respondeu com HTTP " + response.status + ".");
+  }
+  const answer = data.choices?.[0]?.message?.content;
+  if (typeof answer !== "string" || !answer.trim()) {
+    throw new Error("OpenAI não retornou uma resposta válida.");
+  }
+  return answer.trim();
+}
+
+async function callAnyFallback(message, history, mode, footballContext, webContext) {
+  const providers = [
+    { name: "openai", call: () => callOpenAIFallback(message, history, mode, footballContext, webContext) },
+    { name: "cloudflare", call: () => callCloudflareFallback(message, history, mode, footballContext, webContext) }
+  ];
+
+  for (const provider of providers) {
+    try {
+      const answer = await provider.call();
+      if (answer) return { answer, provider: provider.name };
+    } catch (error) {
+      console.error(provider.name + " fallback error:", error.message);
+    }
+  }
+  return null;
 }
 
 function buildConversationInput(message, history, footballContext) {
@@ -499,23 +558,23 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
         return res.status(502).json({ error: "Não consegui concluir a pesquisa agora. Confira a configuração do provedor e tente novamente." });
       }
     }
-    // Sem chave Gemini, tenta a Cloudflare antes de recorrer à resposta demonstrativa.
+    // Sem chave Gemini, tenta os provedores reserva antes da resposta demonstrativa.
     if (!process.env.GEMINI_API_KEY) {
       const canUseCloudflare = !wantsWebSearch || webSources.length > 0;
       if (canUseCloudflare) {
         try {
-          const fallbackAnswer = await callCloudflareFallback(
+          const fallback = await callAnyFallback(
             message, history, mode, req.footballContext, webContext
           );
-          if (fallbackAnswer) {
+          if (fallback) {
             return res.json({
-              answer: fallbackAnswer,
-              provider: "cloudflare",
+              answer: fallback.answer,
+              provider: fallback.provider,
               sources: webSources
             });
           }
         } catch (fallbackError) {
-          console.error("Cloudflare fallback error (Gemini sem chave):", fallbackError.message);
+          console.error("Fallback error (Gemini sem chave):", fallbackError.message);
         }
       }
       if (wantsWebSearch && !webSources.length) {
@@ -545,22 +604,23 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     const data = await response.json();
     if (!response.ok) {
       console.error("Gemini API error:", data.error?.message || response.status);
-      const canUseFallback = (response.status === 429 || response.status >= 500) &&
-        (!wantsWebSearch || webSources.length > 0);
+      // Qualquer falha HTTP da IA principal pode acionar as reservas.
+      // Em perguntas que exigem pesquisa, só usamos a reserva se houver fontes.
+      const canUseFallback = !wantsWebSearch || webSources.length > 0;
       if (canUseFallback) {
         try {
-          const fallbackAnswer = await callCloudflareFallback(
+          const fallback = await callAnyFallback(
             message, history, mode, req.footballContext, webContext
           );
-          if (fallbackAnswer) {
+          if (fallback) {
             return res.json({
-              answer: fallbackAnswer,
-              provider: "cloudflare",
+              answer: fallback.answer,
+              provider: fallback.provider,
               sources: webSources
             });
           }
         } catch (fallbackError) {
-          console.error("Cloudflare fallback error:", fallbackError.message);
+          console.error("Fallback error:", fallbackError.message);
         }
       }
       return res.status(response.status === 429 ? 429 : 502).json({
@@ -591,7 +651,20 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     const sources = [...webSources, ...Array.from(sourceMap.values())].filter((source, index, all) => all.findIndex(item => item.url === source.url) === index).slice(0, 8);
 
     if (!answer) {
-      return res.status(502).json({ error: "A IA não retornou uma resposta válida." });
+      const fallbackAllowed = !wantsWebSearch || webSources.length > 0;
+      if (fallbackAllowed) {
+        const fallback = await callAnyFallback(
+          message, history, mode, req.footballContext, webContext
+        );
+        if (fallback) {
+          return res.json({
+            answer: fallback.answer,
+            provider: fallback.provider,
+            sources: webSources
+          });
+        }
+      }
+      return res.status(502).json({ error: "A IA principal não retornou uma resposta válida e as IAs reservas não estão disponíveis." });
     }
 
     return res.json({ answer, provider: "gemini", sources });
@@ -600,13 +673,13 @@ app.post("/api/assistant", assistantLimit, async (req, res) => {
     try {
       const fallbackAllowed = !wantsWebSearch || webSources.length > 0;
       if (fallbackAllowed) {
-        const fallbackAnswer = await callCloudflareFallback(
+        const fallback = await callAnyFallback(
           message, history, mode, req.footballContext, webContext
         );
-        if (fallbackAnswer) {
+        if (fallback) {
           return res.json({
-            answer: fallbackAnswer,
-            provider: "cloudflare",
+            answer: fallback.answer,
+            provider: fallback.provider,
             sources: webSources
           });
         }
